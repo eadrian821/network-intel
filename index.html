@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>AK / Network OS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#06060B;--s1:#0C0C14;--s2:#12121C;--s3:#1A1A28;--s4:#222234;
+  --b1:rgba(255,255,255,.05);--b2:rgba(255,255,255,.10);--b3:rgba(255,255,255,.18);
+  --t1:#EBEBF5;--t2:#7A7AA8;--t3:#38385A;--t4:#1E1E32;
+  --cyan:#00E5FF;--mag:#FF00C8;--gold:#FFD700;--elec:#4D79FF;
+  --grn:#00FF88;--org:#FF6B35;--purp:#B86EFF;--amber:#FF9F1C;
+  --red:#FF4060;--teal:#00FFCC;
+  --mono:'JetBrains Mono',monospace;--sans:'Space Grotesk',sans-serif;
+  --rp:300px;--gp:240px;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--t1);font-family:var(--sans);}
+
+/* ── LOADER ─────────────────────────────── */
+#loader{position:fixed;inset:0;background:var(--bg);z-index:5000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .6s;}
+#loader.fade{opacity:0;pointer-events:none;}
+.lo-ring{width:48px;height:48px;border:1px solid var(--t4);border-top-color:var(--cyan);border-radius:50%;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.lo-t{font-family:var(--mono);font-size:10px;letter-spacing:.35em;color:var(--cyan);text-transform:uppercase;}
+.lo-sub{font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:.12em;}
+.lo-bar{width:180px;height:1px;background:var(--t4);overflow:hidden;position:relative;}
+.lo-fill{position:absolute;top:0;left:0;height:1px;width:0;background:linear-gradient(90deg,var(--cyan),var(--mag));transition:width .4s ease;}
+
+/* ── LAYOUT ─────────────────────────────── */
+#app{display:flex;flex-direction:column;width:100vw;height:100vh;opacity:0;transition:opacity .5s;}
+#app.ready{opacity:1;}
+#main-area{flex:1;display:flex;overflow:hidden;position:relative;}
+#cv{flex:1;position:relative;overflow:hidden;min-width:0;}
+#main-svg{width:100%;height:100%;display:block;cursor:grab;}
+#main-svg:active{cursor:grabbing;}
+
+/* ── TOP BAR ────────────────────────────── */
+#topbar{height:50px;display:flex;align-items:center;gap:0;background:rgba(6,6,11,.98);border-bottom:1px solid var(--b1);flex-shrink:0;overflow:hidden;}
+.tb-logo{padding:0 16px;border-right:1px solid var(--b1);flex-shrink:0;}
+.tb-logo span{font-family:var(--mono);font-size:11px;letter-spacing:.22em;color:var(--cyan);text-transform:uppercase;}
+.tb-logo small{color:var(--t3);}
+#pills{display:flex;gap:3px;padding:0 12px;overflow-x:auto;scrollbar-width:none;flex:1;align-items:center;}
+#pills::-webkit-scrollbar{display:none;}
+.pill{padding:3px 11px;border-radius:20px;font-size:8.5px;font-weight:500;letter-spacing:.07em;border:1px solid var(--b1);cursor:pointer;transition:all .18s;font-family:var(--mono);text-transform:uppercase;background:transparent;color:var(--t3);white-space:nowrap;flex-shrink:0;}
+.pill:hover{color:var(--t2);border-color:var(--b2);}
+.pill.on{font-weight:600;color:#000;}
+.pill[data-c="all"].on{background:var(--t2);border-color:var(--t2);}
+.pill[data-c="us"].on{background:var(--elec);border-color:var(--elec);box-shadow:0 0 12px rgba(77,121,255,.5);}
+.pill[data-c="am"].on{background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 12px rgba(0,229,255,.5);}
+.pill[data-c="kb"].on{background:var(--grn);border-color:var(--grn);box-shadow:0 0 12px rgba(0,255,136,.5);}
+.pill[data-c="iv"].on{background:var(--gold);border-color:var(--gold);box-shadow:0 0 12px rgba(255,215,0,.5);}
+.pill[data-c="co"].on{background:var(--mag);border-color:var(--mag);box-shadow:0 0 12px rgba(255,0,200,.5);}
+.pill[data-c="po"].on{background:var(--org);border-color:var(--org);box-shadow:0 0 12px rgba(255,107,53,.5);}
+.pill[data-c="ed"].on{background:var(--purp);border-color:var(--purp);box-shadow:0 0 12px rgba(184,110,255,.5);}
+.pill[data-c="eu"].on{background:var(--amber);border-color:var(--amber);box-shadow:0 0 12px rgba(255,159,28,.5);}
+#tr{display:flex;align-items:center;gap:5px;padding:0 12px;border-left:1px solid var(--b1);flex-shrink:0;}
+.tbtn{padding:5px 11px;border-radius:5px;border:1px solid var(--b2);background:transparent;color:var(--t2);font-size:8.5px;cursor:pointer;font-family:var(--mono);text-transform:uppercase;letter-spacing:.09em;transition:all .16s;white-space:nowrap;flex-shrink:0;}
+.tbtn:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,.05);}
+.tbtn.cy{border-color:var(--cyan);color:var(--cyan);}
+.tbtn.mg{border-color:var(--mag);color:var(--mag);}
+.tbtn.gd{border-color:var(--gold);color:var(--gold);}
+.tbtn.gr{border-color:var(--grn);color:var(--grn);}
+.tbtn.pu{border-color:var(--purp);color:var(--purp);}
+
+/* ── COMMAND BAR (bottom) ───────────────── */
+#cmdbar{height:46px;display:flex;align-items:stretch;background:rgba(6,6,11,.98);border-top:1px solid var(--b1);flex-shrink:0;}
+#warroom{flex:1;display:flex;align-items:center;gap:10px;padding:0 14px;border-right:1px solid var(--b1);min-width:0;}
+.wr-icon{color:var(--cyan);font-size:12px;flex-shrink:0;}
+#wri{flex:1;background:transparent;border:none;outline:none;color:var(--cyan);font-family:var(--mono);font-size:11px;min-width:0;}
+#wri::placeholder{color:var(--t3);font-size:10px;}
+.wcl{background:none;border:none;color:var(--t3);cursor:pointer;font-size:12px;}
+#pf-wrap{display:flex;align-items:center;gap:6px;padding:0 12px;border-right:1px solid var(--b1);flex-shrink:0;}
+.pfl{font-family:var(--mono);font-size:7.5px;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;}
+.pfs{background:var(--s2);border:1px solid var(--b2);border-radius:4px;padding:3px 6px;color:var(--t2);font-family:var(--mono);font-size:8px;outline:none;cursor:pointer;max-width:100px;}
+#pfr{padding:3px 10px;border-radius:4px;border:1px solid var(--mag);background:rgba(255,0,200,.08);color:var(--mag);font-family:var(--mono);font-size:8px;cursor:pointer;text-transform:uppercase;letter-spacing:.07em;transition:all .16s;}
+#pfr:hover{background:rgba(255,0,200,.2);}
+#pfc{padding:3px 7px;border-radius:4px;border:1px solid var(--b1);background:transparent;color:var(--t3);font-family:var(--mono);font-size:8px;cursor:pointer;}
+#sts{display:flex;align-items:center;gap:14px;padding:0 16px;flex-shrink:0;}
+.si{text-align:center;cursor:default;}
+.sn{font-size:18px;font-weight:300;color:var(--t1);line-height:1;font-family:var(--mono);}
+.sl{font-size:6.5px;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;margin-top:1px;font-family:var(--mono);}
+
+/* ── PULSE STRIP (live ticker above cmdbar) */
+#pulse{height:22px;background:rgba(6,6,11,.9);border-top:1px solid var(--b1);display:flex;align-items:center;overflow:hidden;flex-shrink:0;}
+#pulse-inner{display:flex;gap:0;white-space:nowrap;animation:ticker 38s linear infinite;}
+@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.pulse-item{padding:0 22px;font-family:var(--mono);font-size:8px;color:var(--t3);border-right:1px solid var(--b1);display:flex;align-items:center;gap:6px;height:22px;}
+.pulse-item .pi-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.pulse-item .pi-name{color:var(--t2);}
+.pulse-item .pi-action{color:var(--t3);}
+
+/* ── RIGHT PANEL ────────────────────────── */
+#rp{width:0;overflow:hidden;transition:width .32s cubic-bezier(.4,0,.2,1);background:var(--s1);border-left:1px solid var(--b1);display:flex;flex-direction:column;position:relative;z-index:30;flex-shrink:0;}
+#rp.open{width:var(--rp);}
+#rps{padding:16px 14px 80px;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--t4) transparent;}
+.rp-close{position:absolute;top:10px;right:10px;background:transparent;border:1px solid var(--b1);color:var(--t3);width:22px;height:22px;border-radius:4px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .14s;z-index:2;}
+.rp-close:hover{border-color:var(--b3);color:var(--t1);}
+.rpbadge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:7.5px;font-family:var(--mono);letter-spacing:.1em;margin-bottom:8px;text-transform:uppercase;border:1px solid;}
+.rpname{font-size:18px;font-weight:600;line-height:1.2;margin-bottom:2px;}
+.rprole{font-size:8.5px;color:var(--t3);margin-bottom:14px;font-family:var(--mono);line-height:1.5;}
+.rpsect{margin-bottom:14px;}
+.rptitle{font-size:7px;font-weight:600;letter-spacing:.18em;color:var(--t3);text-transform:uppercase;font-family:var(--mono);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
+.rptitle::after{content:'';flex:1;height:1px;background:var(--b1);}
+.rprow{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;}
+.rpk{font-size:8.5px;color:var(--t3);font-family:var(--mono);flex-shrink:0;}
+.rpv{font-size:8.5px;color:var(--t2);font-family:var(--mono);text-align:right;max-width:160px;word-break:break-word;line-height:1.45;}
+.sbar{height:2px;background:var(--s3);margin-top:3px;border-radius:1px;overflow:hidden;}
+.sfill{height:100%;border-radius:1px;transition:width .5s cubic-bezier(.4,0,.2,1);}
+.rptxt{font-size:8.5px;color:var(--t2);font-family:var(--mono);line-height:1.65;}
+.tagrow{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;}
+.tag{padding:2px 7px;border-radius:8px;font-size:7.5px;font-family:var(--mono);border:1px solid;letter-spacing:.04em;}
+.coldw{padding:7px 10px;border-radius:4px;margin-bottom:8px;background:rgba(255,0,200,.06);border:1px solid rgba(255,0,200,.18);font-size:8px;color:var(--mag);font-family:var(--mono);line-height:1.55;}
+.hotw{padding:7px 10px;border-radius:4px;margin-bottom:8px;background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.15);font-size:8px;color:var(--grn);font-family:var(--mono);}
+.rpbtn{width:100%;padding:8px;border-radius:5px;border:1px solid var(--b2);background:transparent;color:var(--t2);font-size:8.5px;cursor:pointer;font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;transition:all .16s;margin-top:4px;}
+.rpbtn:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,.05);}
+.rpbtn.mg{border-color:rgba(255,0,200,.3);color:var(--mag);}
+.rpbtn.mg:hover{border-color:var(--mag);background:rgba(255,0,200,.07);}
+/* Relationship ring */
+.rel-ring{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.ring-svg{flex-shrink:0;}
+.ring-info{flex:1;}
+/* Action items */
+.action-item{padding:7px 9px;border-radius:4px;background:rgba(255,215,0,.04);border:1px solid rgba(255,215,0,.12);font-family:var(--mono);font-size:8px;color:var(--gold);line-height:1.55;margin-bottom:6px;}
+/* Intro chain */
+.intro-node{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid var(--b1);cursor:pointer;}
+.intro-node:hover{background:rgba(255,255,255,.02);}
+.intro-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.intro-name{font-size:9px;font-family:var(--mono);color:var(--t2);flex:1;}
+.intro-arrow{color:var(--t3);font-size:10px;}
+/* Synthetic brief */
+#brief-box{background:var(--s2);border:1px solid var(--b2);border-radius:6px;padding:10px;font-family:var(--mono);font-size:8px;color:var(--t2);line-height:1.65;margin-top:6px;}
+
+/* ── GOAL PANEL ─────────────────────────── */
+#gp{width:var(--gp);background:var(--s1);border-left:1px solid var(--b1);display:flex;flex-direction:column;flex-shrink:0;transition:width .3s cubic-bezier(.4,0,.2,1),opacity .3s;}
+#gp.collapsed{width:0;opacity:0;pointer-events:none;}
+.gp-header{padding:10px 12px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.gp-title{font-size:7.5px;font-weight:600;letter-spacing:.18em;color:var(--t3);font-family:var(--mono);text-transform:uppercase;}
+.gp-toggle{background:none;border:1px solid var(--b1);color:var(--t3);width:22px;height:22px;border-radius:4px;cursor:pointer;font-size:12px;font-family:var(--mono);display:flex;align-items:center;justify-content:center;transition:all .14s;}
+.gp-toggle:hover{border-color:var(--b3);color:var(--t1);}
+/* Goal toggle button on topbar for mobile */
+#goal-fab{display:none;position:fixed;bottom:60px;right:14px;z-index:200;width:44px;height:44px;border-radius:50%;background:var(--s2);border:1px solid var(--gold);color:var(--gold);font-size:18px;cursor:pointer;align-items:center;justify-content:center;box-shadow:0 0 18px rgba(255,215,0,.2);}
+#gl{overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--t4) transparent;}
+.gi{padding:8px 12px;border-bottom:1px solid var(--b1);cursor:pointer;transition:background .1s;}
+.gi:hover{background:var(--s2);}
+.gi.sel{background:var(--s2);border-left:2px solid var(--gold);padding-left:10px;}
+.gic{font-size:7px;font-family:var(--mono);color:var(--t3);letter-spacing:.1em;text-transform:uppercase;}
+.git{font-size:8.5px;color:var(--t2);margin-top:2px;font-family:var(--mono);line-height:1.4;}
+.gics{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;}
+.gich{padding:1px 6px;border-radius:6px;font-size:7px;font-family:var(--mono);}
+/* Goal progress mini bar */
+.g-prog{margin-top:4px;height:2px;background:var(--s3);border-radius:1px;overflow:hidden;}
+.g-prog-fill{height:100%;border-radius:1px;background:linear-gradient(90deg,var(--gold),var(--amber));}
+
+/* ── OVERLAYS & HUD ─────────────────────── */
+#clk{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:20;font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:.07em;pointer-events:none;}
+#path-legend{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:50;background:rgba(6,6,11,.96);border:1px solid var(--mag);border-radius:6px;padding:6px 14px;font-family:var(--mono);font-size:8.5px;color:var(--mag);display:none;text-align:center;box-shadow:0 0 20px rgba(255,0,200,.2);white-space:nowrap;}
+#tip{position:absolute;pointer-events:none;z-index:100;background:rgba(6,6,11,.97);border:1px solid var(--b2);border-radius:6px;padding:8px 12px;font-family:var(--mono);font-size:8.5px;color:var(--t2);opacity:0;transition:opacity .12s;max-width:220px;line-height:1.6;}
+#zc{position:absolute;bottom:10px;left:12px;z-index:40;display:flex;flex-direction:column;gap:2px;}
+.zb{width:28px;height:28px;background:var(--s2);border:1px solid var(--b1);border-radius:5px;cursor:pointer;color:var(--t2);font-size:15px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);transition:all .14s;user-select:none;}
+.zb:hover,.zb:active{border-color:var(--b3);color:var(--t1);}
+#zpct{font-family:var(--mono);font-size:7.5px;color:var(--t3);text-align:center;padding:2px 0;}
+
+/* ── CLUSTER LABELS ─────────────────────── */
+.cluster-lbl{pointer-events:none;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;opacity:.35;text-anchor:middle;}
+
+/* ── HEAT RING (node aura) ─────────────── */
+@keyframes pulse-ring{0%{opacity:.15}50%{opacity:.35}100%{opacity:.15}}
+.ng-pulse{animation:pulse-ring 2.5s ease-in-out infinite;}
+
+/* ── FLOW LINES (animated) ─────────────── */
+@keyframes flow{0%{stroke-dashoffset:40}100%{stroke-dashoffset:0}}
+.flow-line{stroke-dasharray:4 6;animation:flow 1.4s linear infinite;}
+@keyframes pathpulse{0%{stroke-dashoffset:600;opacity:0}8%{opacity:1}92%{opacity:1}100%{stroke-dashoffset:0;opacity:0}}
+.path-anim{stroke-dasharray:8 5;stroke-dashoffset:600;stroke-width:2.5px;fill:none;animation:pathpulse 2.2s ease-in-out infinite;}
+
+/* ── XP TOAST ───────────────────────────── */
+#xp-toast{position:fixed;bottom:80px;right:16px;z-index:500;background:var(--s2);border:1px solid var(--gold);border-radius:8px;padding:9px 15px;font-family:var(--mono);font-size:10px;color:var(--gold);box-shadow:0 0 22px rgba(255,215,0,.18);transform:translateY(20px);opacity:0;transition:all .38s cubic-bezier(.4,0,.2,1);pointer-events:none;}
+#xp-toast.show{transform:translateY(0);opacity:1;}
+
+/* ── MODALS ─────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:300;display:none;align-items:center;justify-content:center;padding:12px;}
+.modal-overlay.show{display:flex;}
+.modal{background:#0E0E1A;border:1px solid var(--b2);border-radius:12px;padding:22px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--t4) transparent;}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:3px;}
+.modal-sub{font-size:8.5px;color:var(--t3);font-family:var(--mono);margin-bottom:18px;letter-spacing:.06em;}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.fi{display:flex;flex-direction:column;}
+.fi label{font-size:7.5px;color:var(--t3);letter-spacing:.14em;font-family:var(--mono);text-transform:uppercase;margin-bottom:3px;}
+.fi input,.fi select,.fi textarea{background:var(--s2);border:1px solid var(--b1);border-radius:5px;padding:8px 10px;color:var(--t1);font-size:10px;font-family:var(--mono);outline:none;resize:vertical;transition:border-color .14s;}
+.fi input:focus,.fi select:focus,.fi textarea:focus{border-color:var(--b2);}
+.fi select option{background:#0a0a0e;color:var(--t1);}
+.mbtns{display:flex;gap:8px;margin-top:16px;}
+.mbp{flex:1;padding:10px;border-radius:5px;background:transparent;border:1px solid var(--cyan);color:var(--cyan);font-size:10px;cursor:pointer;font-family:var(--mono);text-transform:uppercase;letter-spacing:.12em;transition:all .16s;}
+.mbp:hover{background:rgba(0,229,255,.1);}
+.mbs{padding:10px 14px;border-radius:5px;border:1px solid var(--b1);background:transparent;color:var(--t3);font-size:10px;cursor:pointer;font-family:var(--mono);transition:all .12s;}
+.mbs:hover{color:var(--t2);border-color:var(--b2);}
+.qa-chip{padding:4px 10px;border-radius:12px;font-size:8.5px;border:1px solid var(--b2);color:var(--t2);cursor:pointer;font-family:var(--mono);transition:all .15s;}
+.qa-chip:hover{border-color:var(--cyan);color:var(--cyan);}
+.qa-chip.sel{border-color:var(--cyan);background:rgba(0,229,255,.09);color:var(--cyan);}
+/* Quiz */
+.quiz-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+.quiz-opt{padding:10px 12px;border-radius:6px;border:1px solid var(--b2);background:transparent;color:var(--t2);font-size:9.5px;cursor:pointer;font-family:var(--sans);text-align:left;transition:all .16s;line-height:1.35;}
+.quiz-opt:hover{border-color:var(--cyan);color:var(--t1);}
+.quiz-opt.correct{border-color:var(--grn);background:rgba(0,255,136,.07);color:var(--grn);}
+.quiz-opt.wrong{border-color:var(--mag);background:rgba(255,0,200,.07);color:var(--mag);}
+.quiz-feedback{padding:10px 12px;border-radius:6px;font-size:9.5px;font-family:var(--mono);line-height:1.5;margin-bottom:14px;}
+.xp-bar-wrap{width:100%;height:4px;background:var(--s3);border-radius:2px;overflow:hidden;}
+.xp-bar{height:4px;background:linear-gradient(90deg,var(--cyan),var(--mag));border-radius:2px;transition:width .6s cubic-bezier(.4,0,.2,1);}
+.xp-label{display:flex;justify-content:space-between;margin-top:4px;font-family:var(--mono);font-size:8px;color:var(--t3);}
+/* Neglect */
+.neglect-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--b1);cursor:pointer;}
+.neglect-row:hover{background:rgba(255,255,255,.02);}
+.neg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.neg-name{font-size:9.5px;font-family:var(--mono);color:var(--t1);flex:1;}
+.neg-days{font-size:8.5px;font-family:var(--mono);color:var(--mag);}
+.neg-bar-wrap{width:80px;height:3px;background:var(--s3);border-radius:2px;flex-shrink:0;}
+.neg-bar{height:3px;border-radius:2px;}
+/* Challenge */
+.ch-card{border:1px solid var(--b2);border-radius:8px;padding:14px;margin-bottom:10px;background:var(--s2);transition:all .2s;}
+.ch-card:hover{border-color:var(--cyan);background:rgba(0,229,255,.03);}
+.ch-card.done{border-color:var(--grn);opacity:.6;cursor:default;}
+.ch-title{font-size:12px;font-weight:500;margin-bottom:4px;}
+.ch-sub{font-size:8.5px;color:var(--t3);font-family:var(--mono);line-height:1.5;}
+.ch-pts{font-size:9.5px;font-family:var(--mono);color:var(--gold);margin-top:6px;}
+.ch-status{font-size:8px;font-family:var(--mono);color:var(--grn);}
+
+/* ── ANALYTICS MODAL ───────────────────── */
+#analytics-modal .an-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+.an-card{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:12px 10px;text-align:center;}
+.an-val{font-size:24px;font-weight:300;font-family:var(--mono);line-height:1;}
+.an-lbl{font-size:7.5px;color:var(--t3);font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;margin-top:3px;}
+.an-section{margin-bottom:14px;}
+.an-title{font-size:7.5px;color:var(--t3);font-family:var(--mono);letter-spacing:.15em;text-transform:uppercase;margin-bottom:8px;}
+.an-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.an-bar-lbl{font-size:8.5px;font-family:var(--mono);color:var(--t2);width:80px;flex-shrink:0;}
+.an-bar-wrap{flex:1;height:4px;background:var(--s3);border-radius:2px;overflow:hidden;}
+.an-bar-fill{height:4px;border-radius:2px;transition:width .6s ease;}
+.an-bar-num{font-size:8px;font-family:var(--mono);color:var(--t3);width:24px;text-align:right;}
+/* Intro finder */
+#intro-modal .intro-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--b1);}
+.intro-chain{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
+.ic-node{padding:2px 8px;border-radius:10px;font-size:8px;font-family:var(--mono);border:1px solid;cursor:pointer;}
+.ic-node:hover{opacity:.8;}
+.ic-arr{color:var(--t3);font-size:10px;}
+/* Signal modal */
+#signal-modal .sig-row{padding:9px 0;border-bottom:1px solid var(--b1);display:flex;align-items:flex-start;gap:10px;}
+.sig-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.sig-body{flex:1;}
+.sig-title{font-size:9.5px;font-weight:500;margin-bottom:2px;}
+.sig-sub{font-size:8px;font-family:var(--mono);color:var(--t3);line-height:1.5;}
+.sig-tag{padding:1px 7px;border-radius:8px;font-size:7.5px;font-family:var(--mono);border:1px solid;margin-right:4px;}
+/* Draft modal */
+#draft-modal textarea{width:100%;min-height:140px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:10px;color:var(--t1);font-family:var(--mono);font-size:9px;outline:none;resize:vertical;line-height:1.6;}
+#draft-modal .draft-tpl{padding:6px 10px;border-radius:4px;border:1px solid var(--b1);background:transparent;color:var(--t2);font-family:var(--mono);font-size:8px;cursor:pointer;margin-right:5px;margin-bottom:5px;transition:all .14s;}
+#draft-modal .draft-tpl:hover{border-color:var(--cyan);color:var(--cyan);}
+
+/* ── MOBILE RESPONSIVE ─────────────────── */
+@media(max-width:768px){
+  :root{--rp:100vw;--gp:100vw;}
+  #gp{position:fixed;top:0;right:0;bottom:0;z-index:400;width:var(--gp);transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);opacity:1;pointer-events:all;}
+  #gp.collapsed{width:var(--gp);opacity:1;transform:translateX(100%);pointer-events:none;}
+  #gp.mobile-open{transform:translateX(0);pointer-events:all;}
+  #goal-fab{display:flex;}
+  #rp.open{position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;z-index:350;}
+  #pf-wrap{display:none;}
+  #pills{max-width:calc(100vw - 180px);}
+  .tbtn span{display:none;}
+  #sts{gap:8px;padding:0 10px;}
+  .sn{font-size:14px;}
+}
+@media(max-width:480px){
+  #pills{display:none;}
+  .tbtn{padding:5px 7px;font-size:8px;}
+  #tr{gap:3px;}
+}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="lo-ring"></div>
+  <div class="lo-t">AK / Network OS</div>
+  <div class="lo-bar"><div class="lo-fill" id="lo-fill"></div></div>
+  <div class="lo-sub" id="lo-sub">Calibrating signal...</div>
+</div>
+
+<div id="app">
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="tb-logo"><span>AK<small>/</small>Net</span></div>
+    <div id="pills">
+      <button class="pill on" data-c="all">All</button>
+      <button class="pill" data-c="us">US Clinical</button>
+      <button class="pill" data-c="am">AMPATH</button>
+      <button class="pill" data-c="kb">Kenya Biz</button>
+      <button class="pill" data-c="iv">Investors</button>
+      <button class="pill" data-c="co">Core</button>
+      <button class="pill" data-c="po">Politics</button>
+      <button class="pill" data-c="ed">Education</button>
+      <button class="pill" data-c="eu">EU</button>
+    </div>
+    <div id="tr">
+      <button class="tbtn cy" onclick="openAdd()">+ <span>Add</span></button>
+      <button class="tbtn gd" onclick="openGame('quiz')">🎯 <span>Quiz</span></button>
+      <button class="tbtn" style="border-color:var(--org);color:var(--org)" onclick="openGame('challenge')">⚡ <span>Missions</span></button>
+      <button class="tbtn mg" onclick="openGame('neglect')">☠ <span>Cold</span></button>
+      <button class="tbtn pu" onclick="openModal('analytics-modal')">◎ <span>Analytics</span></button>
+      <button class="tbtn" style="border-color:var(--teal);color:var(--teal)" onclick="openModal('signal-modal')">⚡ <span>Signals</span></button>
+      <button class="tbtn gr" onclick="openModal('intro-modal')">🔗 <span>Intro</span></button>
+      <button class="tbtn" onclick="resetSim()">⊡</button>
+      <button class="tbtn" onclick="toggleGoalPanel()">◈</button>
+    </div>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div id="main-area">
+    <!-- CANVAS -->
+    <div id="cv">
+      <svg id="main-svg">
+        <defs>
+          <filter id="gfcyan" x="-70%" y="-70%" width="240%" height="240%">
+            <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#00E5FF" flood-opacity=".9"/>
+            <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#00E5FF" flood-opacity=".5"/>
+          </filter>
+          <filter id="gfmag" x="-70%" y="-70%" width="240%" height="240%">
+            <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#FF00C8" flood-opacity=".95"/>
+            <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="#FF00C8" flood-opacity=".5"/>
+          </filter>
+          <filter id="gfgold" x="-70%" y="-70%" width="240%" height="240%">
+            <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#FFD700" flood-opacity=".85"/>
+          </filter>
+          <filter id="gfelec" x="-70%" y="-70%" width="240%" height="240%">
+            <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#4D79FF" flood-opacity=".85"/>
+          </filter>
+          <filter id="gfgrn" x="-70%" y="-70%" width="240%" height="240%">
+            <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#00FF88" flood-opacity=".8"/>
+          </filter>
+          <filter id="gfpurp" x="-70%" y="-70%" width="240%" height="240%">
+            <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#B86EFF" flood-opacity=".8"/>
+          </filter>
+          <filter id="gfamb" x="-70%" y="-70%" width="240%" height="240%">
+            <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#FF9F1C" flood-opacity=".8"/>
+          </filter>
+          <filter id="gforg" x="-70%" y="-70%" width="240%" height="240%">
+            <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#FF6B35" flood-opacity=".8"/>
+          </filter>
+          <!-- Bloom for high-value nodes -->
+          <filter id="bloom" x="-100%" y="-100%" width="300%" height="300%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <g id="g-clusters"></g>
+        <g id="g-links"></g>
+        <g id="g-path"></g>
+        <g id="g-nodes"></g>
+        <g id="g-labels"></g>
+      </svg>
+
+      <!-- HUD overlays -->
+      <div id="clk"></div>
+      <div id="path-legend"></div>
+      <div id="tip"></div>
+      <div id="zc">
+        <div class="zb" onclick="zBy(1.25)">+</div>
+        <div id="zpct">100%</div>
+        <div class="zb" onclick="zBy(.8)">−</div>
+        <div class="zb" onclick="resetSim()" style="font-size:10px;margin-top:4px;">⊡</div>
+      </div>
+    </div>
+
+    <!-- GOAL PANEL -->
+    <div id="gp">
+      <div class="gp-header">
+        <span class="gp-title">◈ Goal Matcher</span>
+        <button class="gp-toggle" onclick="toggleGoalPanel()">×</button>
+      </div>
+      <div id="gl"></div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div id="rp">
+      <button class="rp-close" onclick="closeRP()">×</button>
+      <div id="rps"><div id="rpc"></div></div>
+    </div>
+  </div>
+
+  <!-- PULSE TICKER -->
+  <div id="pulse"><div id="pulse-inner"></div></div>
+
+  <!-- COMMAND BAR -->
+  <div id="cmdbar">
+    <div id="warroom">
+      <span class="wr-icon">⚡</span>
+      <input id="wri" type="text" placeholder="War Room — search tag, org, goal, or scenario...">
+      <button class="wcl" onclick="clearWR()">✕</button>
+    </div>
+    <div id="pf-wrap">
+      <span class="pfl">⟶ Path</span>
+      <select id="pf-from" class="pfs"><option value="">From...</option></select>
+      <select id="pf-to" class="pfs"><option value="">To...</option></select>
+      <button id="pfr" onclick="runPath()">Find</button>
+      <button id="pfc" onclick="clearPath()">✕</button>
+    </div>
+    <div id="sts">
+      <div class="si"><div class="sn" id="s-tot">0</div><div class="sl">Contacts</div></div>
+      <div class="si"><div class="sn" id="s-cold" style="color:var(--mag)">0</div><div class="sl">Cold</div></div>
+      <div class="si"><div class="sn" id="s-act" style="color:var(--grn)">0</div><div class="sl">Active</div></div>
+      <div class="si"><div class="sn" id="s-xp" style="color:var(--gold)">0</div><div class="sl">XP</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- GOAL FAB (mobile) -->
+<button id="goal-fab" onclick="toggleGoalPanel()">◈</button>
+
+<!-- XP TOAST -->
+<div id="xp-toast"></div>
+
+<!-- ══ ADD CONTACT ══ -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-title">Add Contact</div>
+    <div class="modal-sub">// node materialises instantly · commit contacts.json to persist</div>
+    <div class="fgrid">
+      <div class="fi" style="grid-column:1/-1"><label>Full Name *</label><input id="an" type="text" placeholder="Dr. Jane Smith" oninput="liveNamePreview()"></div>
+      <div class="fi"><label>Category *</label>
+        <select id="ac">
+          <option value="us">US Clinical</option><option value="am">AMPATH</option>
+          <option value="kb">Kenya Biz</option><option value="iv">Investor</option>
+          <option value="co">Core</option><option value="po">Politics</option>
+          <option value="ed">Education</option><option value="eu">EU Investor</option>
+        </select>
+      </div>
+      <div class="fi"><label>Role / Org</label><input id="ar" type="text" placeholder="KP — Cardiologist"></div>
+      <div class="fi" style="grid-column:1/-1"><label>Location</label><input id="al" type="text" placeholder="Los Angeles, CA"></div>
+      <div class="fi" style="grid-column:1/-1">
+        <label>Tags (tap to add)</label>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;" id="tag-chips"></div>
+        <input id="at" type="text" placeholder="Custom tag → Enter" style="margin-top:6px;" onkeydown="addCustomTag(event)">
+        <div id="sel-tags" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;min-height:20px;"></div>
+      </div>
+      <div class="fi"><label>Last Contact</label><input id="ad" type="date"></div>
+      <div class="fi"><label>Score (1–10)</label><input id="as" type="number" min="1" max="10" value="5"></div>
+      <div class="fi" style="grid-column:1/-1"><label>Goals (e.g. C3,C7)</label><input id="ag" type="text" placeholder="C3, C7, C8"></div>
+      <div class="fi" style="grid-column:1/-1"><label>Why They Matter</label><textarea id="aw" rows="2" placeholder="LOR for ECFMG. Cardiology network."></textarea></div>
+      <div class="fi" style="grid-column:1/-1"><label>Next Action</label><input id="ana" type="text" placeholder="Email by April 1 — reference rotation..."></div>
+    </div>
+    <div id="add-preview" style="display:none;margin-top:10px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:5px;font-family:var(--mono);font-size:8.5px;color:var(--t3);">→ <span id="prev-name" style="color:var(--cyan)"></span></div>
+    <div class="mbtns"><button class="mbs" onclick="closeAdd()">Cancel</button><button class="mbp" onclick="addContact()">Add to Network</button></div>
+  </div>
+</div>
+
+<!-- ══ DRAFT MESSAGE ══ -->
+<div class="modal-overlay" id="draft-modal">
+  <div class="modal" id="draft-modal-inner">
+    <div class="modal-title">✉ Draft Message</div>
+    <div class="modal-sub" id="draft-sub">Composing for <span id="draft-name" style="color:var(--cyan)"></span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;">
+      <button class="draft-tpl" onclick="draftTpl('reachout')">Re-engage</button>
+      <button class="draft-tpl" onclick="draftTpl('lor')">LOR Request</button>
+      <button class="draft-tpl" onclick="draftTpl('update')">Progress Update</button>
+      <button class="draft-tpl" onclick="draftTpl('intro')">Request Intro</button>
+      <button class="draft-tpl" onclick="draftTpl('uzimatek')">Uzimatek Pitch</button>
+    </div>
+    <textarea id="draft-area" placeholder="Your message will appear here..."></textarea>
+    <div class="mbtns">
+      <button class="mbs" onclick="closeModal('draft-modal')">Close</button>
+      <button class="mbp" onclick="copyDraft()">Copy Message</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ANALYTICS ══ -->
+<div class="modal-overlay" id="analytics-modal">
+  <div class="modal" style="max-width:560px;" id="analytics-modal-inner">
+    <div class="modal-title">◎ Network Analytics</div>
+    <div class="modal-sub">Signal intelligence on your full relationship graph</div>
+    <div class="an-grid" id="an-cards"></div>
+    <div class="an-section"><div class="an-title">Category Distribution</div><div id="an-cats"></div></div>
+    <div class="an-section"><div class="an-title">Goal Coverage</div><div id="an-goals"></div></div>
+    <div class="an-section"><div class="an-title">Health Score Timeline</div><div id="an-health" style="font-family:var(--mono);font-size:8px;color:var(--t3);line-height:1.8;"></div></div>
+    <div class="an-section"><div class="an-title">Top Priority Actions</div><div id="an-actions"></div></div>
+    <div class="mbtns"><button class="mbs" onclick="closeModal('analytics-modal')">Close</button></div>
+  </div>
+</div>
+
+<!-- ══ INTRO FINDER ══ -->
+<div class="modal-overlay" id="intro-modal">
+  <div class="modal" id="intro-modal-inner">
+    <div class="modal-title">🔗 Introduction Finder</div>
+    <div class="modal-sub">Who can bridge you to your cold or target contacts?</div>
+    <div id="intro-list"></div>
+    <div class="mbtns"><button class="mbs" onclick="closeModal('intro-modal')">Close</button></div>
+  </div>
+</div>
+
+<!-- ══ NETWORK SIGNALS ══ -->
+<div class="modal-overlay" id="signal-modal">
+  <div class="modal" id="signal-modal-inner">
+    <div class="modal-title">⚡ Network Signals</div>
+    <div class="modal-sub">AI-synthesised insights on what your network is telling you right now</div>
+    <div id="signal-list"></div>
+    <div class="mbtns"><button class="mbs" onclick="closeModal('signal-modal')">Close</button></div>
+  </div>
+</div>
+
+<!-- ══ INTEL QUIZ ══ -->
+<div class="modal-overlay" id="quiz-modal">
+  <div class="modal" style="max-width:500px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+      <div class="modal-title">🎯 Intel Quiz</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--gold)" id="quiz-score-display">XP: 0</div>
+    </div>
+    <div class="modal-sub">How well do you actually know your network?</div>
+    <div id="quiz-body"></div>
+    <div class="mbtns"><button class="mbs" onclick="closeGame('quiz')">Exit</button><button class="mbp" id="quiz-next" onclick="nextQuestion()" style="display:none">Next →</button></div>
+  </div>
+</div>
+
+<!-- ══ MISSIONS ══ -->
+<div class="modal-overlay" id="challenge-modal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+      <div class="modal-title">⚡ Network Missions</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--gold)">Total XP: <span id="ch-total-xp">0</span></div>
+    </div>
+    <div class="modal-sub">Complete missions. XP rewards real actions.</div>
+    <div class="xp-bar-wrap"><div class="xp-bar" id="ch-xpbar" style="width:0%"></div></div>
+    <div class="xp-label"><span id="ch-level">Level 1 — Scout</span><span id="ch-xplabel">0 / 200 XP</span></div>
+    <div style="height:12px"></div>
+    <div id="ch-list"></div>
+    <div class="mbtns"><button class="mbs" onclick="closeGame('challenge')">Close</button></div>
+  </div>
+</div>
+
+<!-- ══ NEGLECT MAP ══ -->
+<div class="modal-overlay" id="neglect-modal">
+  <div class="modal">
+    <div class="modal-title">☠ Cold Contact Map</div>
+    <div class="modal-sub">Relationships drifting dark. Act before signal loss is permanent.</div>
+    <div id="neg-list"></div>
+    <div class="mbtns"><button class="mbs" onclick="closeGame('neglect')">Close</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════════════════
+const CAT_COL={us:"#4D79FF",am:"#00E5FF",kb:"#00FF88",iv:"#FFD700",co:"#FF00C8",po:"#FF6B35",ed:"#B86EFF",eu:"#FF9F1C"};
+const CAT_GLW={us:"gfelec",am:"gfcyan",kb:"gfgrn",iv:"gfgold",co:"gfmag",po:"gforg",ed:"gfpurp",eu:"gfamb"};
+const CAT_LBL={us:"US Clinical",am:"AMPATH",kb:"Kenya Biz",iv:"Investor",co:"Core",po:"Politics",ed:"Education",eu:"EU Investor"};
+
+function daysAgo(s){if(!s)return 999;const d=Math.floor((Date.now()-new Date(s))/864e5);return d<0?0:d;}
+
+// ═══════════════════════════════════════════════════════════
+//  NODES
+// ═══════════════════════════════════════════════════════════
+let NODES=[
+  // US CLINICAL
+  {id:"n1",name:"Dr. Tony Nguyen",role:"Anaesthesiologist — KP LA",cat:"us",score:6,daysSince:daysAgo("2025-10-02"),goals:["C3","C7","C13"],tags:["Kaiser Permanente","Anaesthesiology","LOR"],nextAction:"Email — reference 'military-like OR culture'. Ask 2028 observership.",loc:"Los Angeles"},
+  {id:"n2",name:"Dr. Jennifer Nguyen",role:"Cardiologist — KP LA",cat:"us",score:6,daysSince:daysAgo("2025-10-02"),goals:["C3","C7","C13"],tags:["Kaiser Permanente","Cardiology","TEE"],nextAction:"Email — TEE session + TAVR context. Express cardiology interest.",loc:"Los Angeles"},
+  {id:"n3",name:"Dr. Leong",role:"Interventional Cardiologist — KP",cat:"us",score:8,daysSince:daysAgo("2025-10-02"),goals:["C3","C7","C13"],tags:["Kaiser Permanente","Cath Lab","PCI","LOR"],nextAction:"EMAIL PRIORITY — scrubbed PCI. Ask 2028 interventional observership.",loc:"Los Angeles"},
+  {id:"n4",name:"Dr. Howard",role:"CCU Cardiologist — KP",cat:"us",score:6,daysSince:daysAgo("2025-10-02"),goals:["C3","C7","C13"],tags:["Kaiser Permanente","CCU","Case Presentation"],nextAction:"Email — AV block case presentation reference.",loc:"Los Angeles"},
+  {id:"n5",name:"Dr. Kohan",role:"CCU Cardiologist — KP",cat:"us",score:5,daysSince:daysAgo("2025-10-02"),goals:["C3","C7","C13"],tags:["Kaiser Permanente","CCU","ACS"],nextAction:"Email alongside Dr. Howard. Brief, professional.",loc:"Los Angeles"},
+  {id:"n6",name:"Dr. Doris",role:"Electrophysiologist — KP EP Lab",cat:"us",score:5,daysSince:daysAgo("2025-10-02"),goals:["C3","C7","C13"],tags:["Kaiser Permanente","EP Lab","WPW","CARTO"],nextAction:"Email — WPW ablation + CARTO mapping. Express EP interest.",loc:"Los Angeles"},
+  {id:"n7",name:"Dr. Ethnasios",role:"Internist — KP Primary Care",cat:"us",score:5,daysSince:daysAgo("2025-10-02"),goals:["C3","C7","C13"],tags:["Kaiser Permanente","Internal Medicine","USMLE"],nextAction:"Email: IM is my US residency target. IMG prep advice.",loc:"Los Angeles"},
+  {id:"n8",name:"Dr. Puente",role:"Paediatrician — KP Crenshaw",cat:"us",score:5,daysSince:daysAgo("2025-10-02"),goals:["C3","C13"],tags:["Kaiser Permanente","Paediatrics","HEADSS"],nextAction:"Personal email — reference HEADSS at MTRH.",loc:"Los Angeles"},
+  {id:"n9",name:"Dr. Caivano",role:"Haematologist / SCD — KP",cat:"us",score:4,daysSince:daysAgo("2025-10-02"),goals:["C3","C13"],tags:["Kaiser Permanente","Haematology","Sickle Cell","Uzimatek"],nextAction:"Email — SCD life expectancy contrast. Mention Uzimatek.",loc:"Los Angeles"},
+  {id:"n10",name:"Dr. Parekh",role:"Urological Surgeon — KP DaVinci",cat:"us",score:4,daysSince:daysAgo("2025-10-02"),goals:["C3","C13"],tags:["Kaiser Permanente","Urology","DaVinci"],nextAction:"Brief email. Reference DaVinci partial nephrectomy.",loc:"Los Angeles"},
+  {id:"n11",name:"Dr. Tammadon",role:"Urological Surgeon — KP DaVinci",cat:"us",score:4,daysSince:daysAgo("2025-10-02"),goals:["C3","C13"],tags:["Kaiser Permanente","Urology","DaVinci"],nextAction:"Brief email alongside Dr. Parekh.",loc:"Los Angeles"},
+  {id:"n12",name:"Dr. Chi",role:"Plastic Surgeon — KP",cat:"us",score:4,daysSince:daysAgo("2025-10-02"),goals:["C3","C13"],tags:["Kaiser Permanente","Plastic Surgery","Multidisciplinary"],nextAction:"Email — multidisciplinary care pathway as systems-thinking lesson.",loc:"Los Angeles"},
+  {id:"n13",name:"Dr. Diego",role:"Interventional Radiologist — KP",cat:"us",score:4,daysSince:daysAgo("2025-10-02"),goals:["C3","C13"],tags:["Kaiser Permanente","IR","UAE"],nextAction:"Email — UAE as minimally invasive alternative. MTRH contrast.",loc:"Los Angeles"},
+  {id:"n14",name:"Dr. Cara",role:"Urgent Care Physician — KP",cat:"us",score:3,daysSince:daysAgo("2025-10-02"),goals:["C3","C13"],tags:["Kaiser Permanente","Urgent Care"],nextAction:"Brief thank-you. Urgent care as ED pressure valve insight.",loc:"Los Angeles"},
+  {id:"n15",name:"KP Faculty / PD",role:"Program Director — KP School of Medicine",cat:"us",score:5,daysSince:daysAgo("2025-11-15"),goals:["C7","C8","C13"],tags:["Kaiser Permanente","Program Director","ERAS","Digital Health"],nextAction:"Email April 15. Uzimatek digital health angle. Ask 30-min Zoom.",loc:"Los Angeles"},
+  {id:"n16",name:"KP Management",role:"Operations / Management — KP",cat:"us",score:5,daysSince:daysAgo("2026-01-10"),goals:["C5","C6","C12"],tags:["Kaiser Permanente","Operations","AVIA Health"],nextAction:"LinkedIn — Uzimatek one-pager referencing management tour.",loc:"Los Angeles"},
+  // AMPATH
+  {id:"n17",name:"Dr. Zachary Gitlin",role:"Internal Med & Paeds — IU / AMPATH",cat:"am",score:4,daysSince:daysAgo("2025-08-13"),goals:["C3","C7","C11"],tags:["AMPATH","MTRH","Fireside","Indiana University","LOR"],nextAction:"Re-engage AMPATH Fireside. IU dual-speciality email. Zoom April.",loc:"Eldoret"},
+  {id:"n18",name:"Dr. Josh Smith-Sreen",role:"US Residency — AMPATH MTRH",cat:"am",score:7,daysSince:daysAgo("2026-02-02"),goals:["C7","C11"],tags:["AMPATH","MTRH","USMLE","IMG Match","USAID"],nextAction:"WhatsApp monthly. Propose research co-authorship MTRH data.",loc:"Eldoret"},
+  {id:"n19",name:"MTRH Consultant",role:"Consultant Physician — MTRH",cat:"am",score:5,daysSince:daysAgo("2026-03-10"),goals:["C2","C3","C10"],tags:["MTRH Consultants","MSPE","SHA","Uzimatek"],nextAction:"Visit next rotation — position as Uzimatek founder.",loc:"Eldoret"},
+  // KENYA BIZ
+  {id:"n20",name:"Bradley Mogere",role:"Medical Supply — Business Partner",cat:"kb",score:8,daysSince:daysAgo("2026-03-20"),goals:["C2","C4","C9"],tags:["Supply Chain","Medical Supply","Kenya","Partnership"],nextAction:"Monthly call this week. Consignment + partnership agreement.",loc:"Nairobi"},
+  {id:"n21",name:"Melchizedek Anyonje",role:"Medical Supply — Business Partner",cat:"kb",score:7,daysSince:daysAgo("2026-03-18"),goals:["C2","C4","C9"],tags:["Supply Chain","Medical Supply","Logistics","Partnership"],nextAction:"3-way call with Bradley. Formalise written agreement.",loc:"Nairobi"},
+  // CORE
+  {id:"n22",name:"Sandrah",role:"5th Year MBChB — Life Partner",cat:"co",score:10,daysSince:daysAgo("2026-03-23"),goals:["C8"],tags:["Core","Partner","B1/B2","Visa"],nextAction:"April getaway NOW. B1/B2 docs this weekend.",loc:"Eldoret"},
+  // INVESTORS
+  {id:"n23",name:"Africa Health Collaborative",role:"Health Innovation Network — Nairobi/US",cat:"iv",score:5,daysSince:daysAgo("2026-02-15"),goals:["C5","C6","C15"],tags:["Health-Tech","Novastar","Mastercard Foundation","Grant","MCF"],nextAction:"EMAIL THIS WEEK — Q1 Uzimatek update. Ask for 1 investor intro.",loc:"Nairobi"},
+  {id:"n24",name:"Mastercard Foundation",role:"Foundation — Programme Officer",cat:"iv",score:6,daysSince:daysAgo("2026-02-28"),goals:["C5","C15"],tags:["Foundation","YouthAfrica Works","Grant","MCF Runner-Up"],nextAction:"April: 6-month post-pitch update. Show traction.",loc:"Nairobi"},
+  {id:"n25",name:"Novastar Ventures",role:"VC — East Africa Health-Tech",cat:"iv",score:2,daysSince:999,goals:["C5","C15"],tags:["VC","East Africa","Health-Tech","Seed"],nextAction:"Request AHC introduction. Prepare Uzimatek one-pager.",loc:"Nairobi"},
+  {id:"n26",name:"Villgro Africa",role:"Health-Tech Incubator — Nairobi",cat:"iv",score:2,daysSince:999,goals:["C5","C6"],tags:["Incubator","Health-Tech","East Africa","Startup"],nextAction:"Submit Uzimatek incubator application Q2 2026.",loc:"Nairobi"},
+  {id:"n27",name:"GSMA Mobile for Dev",role:"Innovation Fund — Mobile Health",cat:"iv",score:2,daysSince:999,goals:["C5"],tags:["Grant","Mobile Health","LMIC","GSMA"],nextAction:"Check gsma.com for current cohort. Submit Q2 2026.",loc:"London"},
+  {id:"n28",name:"EU Health Tech Investor",role:"Partech Africa / Leapfrog — EU",cat:"eu",score:1,daysSince:999,goals:["C5","C15"],tags:["Europe","Pre-Seed","Partech","Leapfrog"],nextAction:"LinkedIn — MCF runner-up + Uzimatek one-pager.",loc:"London"},
+  // POLITICS
+  {id:"n29",name:"MOH Policy Lead",role:"Ministry of Health — Policy Division",cat:"po",score:1,daysSince:999,goals:["C2","C5"],tags:["Ministry of Health","SHA","Policy","Kenya"],nextAction:"Request warm intro via Africa Health Collaborative.",loc:"Nairobi"},
+  {id:"n30",name:"Newton Osiemo",role:"CEO — Wilken Group Kenya",cat:"po",score:1,daysSince:999,goals:["C2","C5","C6"],tags:["Wilken Group","Government Procurement","Kenya"],nextAction:"Identify warm intro via AHC or Bradley/Melchi.",loc:"Nairobi"},
+  {id:"n31",name:"Jayesh Saini",role:"Chairman — Nairobi Hospital",cat:"po",score:1,daysSince:999,goals:["C5"],tags:["Nairobi Hospital","Private Healthcare","Political Economy"],nextAction:"Intelligence monitoring only. No direct approach.",loc:"Nairobi"},
+  {id:"n32",name:"Farouk Kibet",role:"Political Figure — Ruto Administration",cat:"po",score:1,daysSince:999,goals:["C2"],tags:["Politics","Ruto","SHA Procurement"],nextAction:"Intelligence monitoring only.",loc:"Nairobi"},
+  // EDUCATION
+  {id:"n33",name:"Dr. Kiptoon",role:"Course Coordinator MSE 500 — MUSOM",cat:"ed",score:5,daysSince:daysAgo("2026-02-24"),goals:["C3","C14"],tags:["MUSOM","Electives","ECFMG","Dean's Letter"],nextAction:"Office visit — ECFMG registration + Dean's letter process.",loc:"Eldoret"},
+  {id:"n34",name:"MU Faculty",role:"Moi University — Clinical Faculty",cat:"ed",score:5,daysSince:daysAgo("2026-02-20"),goals:["C3","C14"],tags:["MUSOM","MTRH","Clinical Faculty","MSPE","LOR"],nextAction:"Office visit next rotation. Ask intelligent clinical questions.",loc:"Eldoret"},
+  {id:"n35",name:"Strathmore MBA Director",role:"Strathmore Business School — MBA",cat:"ed",score:2,daysSince:999,goals:["C14"],tags:["Strathmore","MBA","East Africa","Business Network"],nextAction:"Email Q4 2026. Campus visit Q1 2027.",loc:"Nairobi"},
+];
+
+const LINKS_RAW=[
+  // KP Cardiology core
+  {s:"n2",t:"n3",w:3},{s:"n3",t:"n4",w:3},{s:"n4",t:"n5",w:3},{s:"n1",t:"n3",w:2},
+  {s:"n2",t:"n6",w:2},{s:"n5",t:"n6",w:1},{s:"n1",t:"n4",w:2},{s:"n2",t:"n7",w:1},
+  // KP Surgery
+  {s:"n10",t:"n11",w:3},{s:"n12",t:"n13",w:1},{s:"n7",t:"n8",w:2},
+  // KP Faculty hub
+  {s:"n15",t:"n1",w:2},{s:"n15",t:"n3",w:2},{s:"n15",t:"n16",w:2},{s:"n14",t:"n15",w:2},
+  {s:"n16",t:"n23",w:1},
+  // AMPATH
+  {s:"n17",t:"n18",w:2},{s:"n17",t:"n19",w:2},{s:"n18",t:"n19",w:2},
+  {s:"n19",t:"n20",w:1},{s:"n19",t:"n29",w:1},{s:"n17",t:"n15",w:1},
+  // Kenya Biz
+  {s:"n20",t:"n21",w:3},{s:"n20",t:"n23",w:1},{s:"n21",t:"n23",w:1},
+  // Core
+  {s:"n22",t:"n19",w:1},{s:"n22",t:"n34",w:1},{s:"n22",t:"n20",w:1},
+  // Investors
+  {s:"n23",t:"n24",w:2},{s:"n23",t:"n25",w:2},{s:"n23",t:"n26",w:2},
+  {s:"n23",t:"n27",w:1},{s:"n23",t:"n29",w:1},{s:"n23",t:"n30",w:1},
+  {s:"n24",t:"n25",w:1},{s:"n24",t:"n28",w:1},{s:"n25",t:"n28",w:1},
+  // Politics
+  {s:"n29",t:"n30",w:2},{s:"n30",t:"n31",w:1},{s:"n30",t:"n32",w:1},
+  // Education
+  {s:"n33",t:"n34",w:3},{s:"n33",t:"n35",w:1},{s:"n34",t:"n19",w:1},
+  // Cross-cluster bridges
+  {s:"n18",t:"n15",w:1},{s:"n9",t:"n19",w:1},{s:"n15",t:"n23",w:1},
+];
+
+const GOALS_LIST=[
+  {code:"C1",text:"Pass anaesthesia exam — April 10",domain:"Clinical"},
+  {code:"C2",text:"Sign 2 SHA pilot clinics",domain:"Business"},
+  {code:"C3",text:"Submit ECFMG registration",domain:"Medical"},
+  {code:"C4",text:"Formalise supply partnership",domain:"Business"},
+  {code:"C5",text:"Submit 1 grant application",domain:"Business"},
+  {code:"C6",text:"UzimaClinic MVP — 1 paying clinic",domain:"Business"},
+  {code:"C7",text:"USMLE Step 1 resources + plan",domain:"Medical"},
+  {code:"C8",text:"Sandrah B1/B2 visa submitted",domain:"Relationship"},
+  {code:"C9",text:"Reach KES 150k savings",domain:"Finance"},
+  {code:"C10",text:"AMPATH Fireside — 8 sessions",domain:"Network"},
+  {code:"C11",text:"24+ US contacts from AMPATH",domain:"Network"},
+  {code:"C12",text:"Uzimatek Delaware C-Corp",domain:"Business"},
+  {code:"C13",text:"KP observership planned 2028",domain:"Medical"},
+  {code:"C14",text:"Strathmore MBA — first contact",domain:"Education"},
+  {code:"C15",text:"Monthly investor updates running",domain:"Business"},
+];
+
+const TAG_PRESETS=["Kaiser Permanente","AMPATH","MTRH Consultants","Uzimatek","Health-Tech","Supply Chain","MCF Runner-Up","Cardiology","USMLE","LOR","Policy","MBA","SHA","Startup","Fireside","MUSOM","Grant","Partnership","VC","East Africa"];
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+let XP=0,quizScore=0,quizAnswered=false,quizHighScore=0;
+let sessionContacts=0,pathRan=false,wrRan=false,goalsClicked=0;
+let selGoal=null,selectedNode=null,hovNode=null,filtCat="all";
+let wrActive=false,wrQuery="",pathNodes=null,pathEdges=null;
+let sim,svgEl,gLinks,gPath,gNodes,gLabels,adj={},linkIdx=[];
+let selTags=new Set(),draftTarget=null;
+let gpOpen=true,mobilGpOpen=false;
+const nmap=new Map(NODES.map(n=>[n.id,n]));
+const LEVELS=[{xp:0,n:"Scout"},{xp:200,n:"Operator"},{xp:500,n:"Connector"},{xp:1000,n:"Navigator"},{xp:2000,n:"Architect"},{xp:4000,n:"Maestro"},{xp:8000,n:"Sovereign"}];
+
+const CHALLENGES=[
+  {id:"c1",title:"First Contact",desc:"Add a new contact via + Add",pts:50,check:()=>NODES.length>35,done:false},
+  {id:"c2",title:"Cold Caller",desc:"Mark 3 contacts as contacted this session",pts:100,check:()=>sessionContacts>=3,done:false},
+  {id:"c3",title:"Pathfinder",desc:"Run the Pathfinder between 2 contacts",pts:75,check:()=>pathRan,done:false},
+  {id:"c4",title:"War Room Operator",desc:"Use War Room to cluster a scenario",pts:60,check:()=>wrRan,done:false},
+  {id:"c5",title:"Intel Officer",desc:"Score 3+ in the Intel Quiz",pts:150,check:()=>quizHighScore>=3,done:false},
+  {id:"c6",title:"Goal Architect",desc:"Click 3 different goals in Goal Matcher",pts:80,check:()=>goalsClicked>=3,done:false},
+  {id:"c7",title:"Network Builder",desc:"Reach 40 total contacts",pts:200,check:()=>NODES.length>=40,done:false},
+  {id:"c8",title:"Signal Reader",desc:"Open Network Signals",pts:50,check:()=>signalOpened,done:false},
+  {id:"c9",title:"Draft Master",desc:"Generate 3 message drafts",pts:100,check:()=>draftsGenerated>=3,done:false},
+  {id:"c10",title:"Network Analyst",desc:"Open Analytics modal",pts:60,check:()=>analyticsOpened,done:false},
+];
+let signalOpened=false,draftsGenerated=0,analyticsOpened=false;
+
+// ═══════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════
+function autoScore(d){return Math.max(1,Math.min(10,(d.score||5)-(d.daysSince>60?4:d.daysSince>30?2:d.daysSince>14?1:0)));}
+function nR(d){const w=(d.goals||[]).length*1.6+(d.score||5)*0.8;const pen=Math.min(1,d.daysSince/250);return Math.max(10,11+(w*(1-pen*0.5))*1.6);}
+function rand(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function shuffle(arr){return[...arr].sort(()=>Math.random()-.5);}
+function lerp(a,b,t){return a+(b-a)*t;}
+
+function gravForce(alpha){
+  const W=svgEl?svgEl.clientWidth:800,H=svgEl?svgEl.clientHeight:600;
+  // Cluster by category
+  const catCx={us:W*.22,am:W*.5,kb:W*.75,iv:W*.65,co:W*.5,po:W*.82,ed:W*.35,eu:W*.85};
+  const catCy={us:H*.38,am:H*.42,kb:H*.45,iv:H*.68,co:H*.55,po:H*.72,ed:H*.28,eu:H*.55};
+  NODES.forEach(d=>{
+    if(!d.x)return;
+    const cx=catCx[d.cat]||W/2,cy=catCy[d.cat]||H/2;
+    const clusterStr=0.018*alpha;
+    const centerStr=Math.max(0.003,0.028*(1-Math.min(1,d.daysSince/200)))*alpha;
+    d.vx+=(cx-d.x)*clusterStr+(W/2-d.x)*centerStr;
+    d.vy+=(cy-d.y)*clusterStr+(H/2-d.y)*centerStr;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  XP + GAMIFICATION
+// ═══════════════════════════════════════════════════════════
+function awardXP(pts,reason){
+  XP+=pts;
+  document.getElementById("s-xp").textContent=XP;
+  const t=document.getElementById("xp-toast");
+  t.textContent=`+${pts} XP — ${reason}`;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),2400);
+  checkChallenges();
+}
+function checkChallenges(){
+  CHALLENGES.forEach(ch=>{
+    if(!ch.done&&ch.check()){
+      ch.done=true;awardXP(ch.pts,ch.title);
+      const el=document.getElementById(`ch-${ch.id}`);
+      if(el)el.classList.add("done");
+      updateXPBar();
+    }
+  });
+}
+function updateXPBar(){
+  const lvl=LEVELS.filter(l=>l.xp<=XP).pop()||LEVELS[0];
+  const nx=LEVELS.find(l=>l.xp>XP)||LEVELS[LEVELS.length-1];
+  const pct=nx.xp>lvl.xp?Math.min(100,(XP-lvl.xp)/(nx.xp-lvl.xp)*100):100;
+  const xb=document.getElementById("ch-xpbar");
+  if(xb)xb.style.width=pct+"%";
+  const xl=document.getElementById("ch-level"),xll=document.getElementById("ch-xplabel"),xtx=document.getElementById("ch-total-xp");
+  if(xl)xl.textContent=`Level ${LEVELS.indexOf(lvl)+1} — ${lvl.n}`;
+  if(xll)xll.textContent=`${XP} / ${nx.xp} XP`;
+  if(xtx)xtx.textContent=XP;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+function init(){
+  const steps=["Mapping relationships...","Calibrating signal strength...","Plotting influence clusters...","Activating network OS..."];
+  let si=0;
+  const loFill=document.getElementById("lo-fill"),loSub=document.getElementById("lo-sub");
+  const iv=setInterval(()=>{
+    si++;loFill.style.width=(si/steps.length*100)+"%";
+    if(steps[si])loSub.textContent=steps[si];
+    if(si>=steps.length){clearInterval(iv);setTimeout(startApp,300);}
+  },400);
+}
+
+function startApp(){
+  svgEl=document.getElementById("main-svg");
+  const svg=d3.select("#main-svg");
+  const W=svgEl.clientWidth,H=svgEl.clientHeight;
+  const defs=svg.select("defs");
+
+  // Gradient defs for links
+  LINKS_RAW.forEach((l,i)=>{
+    const sc=CAT_COL[nmap.get(l.s)?.cat]||"#fff";
+    const tc=CAT_COL[nmap.get(l.t)?.cat]||"#fff";
+    defs.append("linearGradient").attr("id",`lg${i}`).attr("gradientUnits","userSpaceOnUse")
+      .call(g=>{g.append("stop").attr("offset","0%").attr("stop-color",sc).attr("stop-opacity",.7);
+               g.append("stop").attr("offset","100%").attr("stop-color",tc).attr("stop-opacity",.7);});
+  });
+
+  gLinks=d3.select("#g-links");
+  gPath=d3.select("#g-path");
+  gNodes=d3.select("#g-nodes");
+  gLabels=d3.select("#g-labels");
+
+  const links=LINKS_RAW.map((l,i)=>({...l,index:i,source:l.s,target:l.t}));
+
+  sim=d3.forceSimulation(NODES)
+    .force("link",d3.forceLink(links).id(d=>d.id).distance(d=>100+(3-Math.min(3,d.w))*38).strength(d=>Math.min(0.5,d.w*0.15)))
+    .force("charge",d3.forceManyBody().strength(d=>-280-d.score*12).distanceMax(400))
+    .force("collide",d3.forceCollide().radius(d=>nR(d)+18).strength(0.85))
+    .force("center",d3.forceCenter(W/2,H/2).strength(0.03))
+    .force("gravity",gravForce)
+    .alphaDecay(0.014).velocityDecay(0.38);
+
+  // Draw links
+  const linkSel=gLinks.selectAll(".lp").data(links).enter().append("path")
+    .attr("class","lp").attr("fill","none")
+    .attr("stroke",(d,i)=>`url(#lg${i})`).attr("stroke-width",d=>Math.max(0.4,d.w*0.3)).attr("stroke-opacity",.18);
+
+  buildNodeElements();
+
+  // Cluster labels
+  const cats=Object.keys(CAT_LBL);
+  cats.forEach(c=>{
+    gLabels.append("text").attr("class","cluster-lbl").attr("id",`cl-${c}`)
+      .attr("fill",CAT_COL[c]||"#fff").text(CAT_LBL[c]);
+  });
+
+  // Zoom
+  const zoom=d3.zoom().scaleExtent([.06,8]).on("zoom",e=>{
+    d3.select("#g-clusters").attr("transform",e.transform);
+    d3.select("#g-links").attr("transform",e.transform);
+    d3.select("#g-nodes").attr("transform",e.transform);
+    d3.select("#g-path").attr("transform",e.transform);
+    d3.select("#g-labels").attr("transform",e.transform);
+    document.getElementById("zpct").textContent=Math.round(e.transform.k*100)+"%";
+  });
+  svg.call(zoom);
+  svg.on("click",()=>{deselect();});
+  window._zoom=zoom;window._svg=svg;
+
+  sim.on("tick",()=>{
+    linkSel.attr("d",d=>{
+      if(!d.source?.x)return"";
+      const dx=d.target.x-d.source.x,dy=d.target.y-d.source.y;
+      const c=Math.max(.2,1-d.w*.12);
+      return`M${d.source.x},${d.source.y}Q${(d.source.x+d.target.x)/2-dy*c*.28},${(d.source.y+d.target.y)/2+dx*c*.28} ${d.target.x},${d.target.y}`;
+    });
+    LINKS_RAW.forEach((l,i)=>{
+      const g2=document.getElementById(`lg${i}`);
+      const s=nmap.get(l.s),t=nmap.get(l.t);
+      if(g2&&s&&t){g2.setAttribute("x1",s.x||0);g2.setAttribute("y1",s.y||0);g2.setAttribute("x2",t.x||0);g2.setAttribute("y2",t.y||0);}
+    });
+    gNodes.selectAll(".ng").attr("transform",d=>`translate(${d.x||0},${d.y||0})`);
+    // Update cluster labels to centroid of each cat
+    const cats=Object.keys(CAT_LBL);
+    cats.forEach(c=>{
+      const ns=NODES.filter(n=>n.cat===c&&n.x);
+      if(!ns.length)return;
+      const cx=ns.reduce((a,n)=>a+n.x,0)/ns.length;
+      const cy=ns.reduce((a,n)=>a+n.y,0)/ns.length - ns.reduce((a,n)=>a+nR(n),0)/ns.length - 18;
+      d3.select(`#cl-${c}`).attr("x",cx).attr("y",cy);
+    });
+    if(pathNodes)refreshPathOverlay();
+  });
+
+  buildAdj(links);
+  populatePathSelects();
+  buildTagChips();
+  document.getElementById("ad").value=new Date().toISOString().split("T")[0];
+  renderGoals();
+  renderPulseTicker();
+  updateStats();
+
+  // Pills
+  document.querySelectorAll(".pill").forEach(p=>{
+    p.onclick=()=>{
+      document.querySelectorAll(".pill").forEach(x=>x.classList.remove("on"));
+      p.classList.add("on");filtCat=p.dataset.c;
+      pathNodes=null;gPath.selectAll("*").remove();
+      wrActive=false;document.getElementById("wri").value="";wrQuery="";
+      applyVS();
+    };
+  });
+
+  // War room
+  document.getElementById("wri").addEventListener("input",function(){
+    wrQuery=this.value.trim();wrActive=wrQuery.length>0;
+    pathNodes=null;gPath.selectAll("*").remove();
+    if(wrActive){
+      wrRan=true;
+      const W2=svgEl.clientWidth,H2=svgEl.clientHeight,cx=W2/2,cy=H2/2;
+      const mat=NODES.filter(matchWR),non=NODES.filter(n=>!matchWR(n));
+      mat.forEach(n=>{n.fx=cx+(Math.random()-.5)*90;n.fy=cy+(Math.random()-.5)*90;});
+      non.forEach(n=>{const a=Math.random()*Math.PI*2,r=Math.min(W2,H2)*.42;n.fx=cx+Math.cos(a)*r;n.fy=cy+Math.sin(a)*r;});
+      sim.alpha(.9).restart();
+      setTimeout(()=>{mat.forEach(n=>{n.fx=null;n.fy=null;});non.forEach(n=>{n.fx=null;n.fy=null;});},1600);
+      awardXP(5,"War Room search");checkChallenges();
+    } else {NODES.forEach(n=>{n.fx=null;n.fy=null;});sim.alpha(.3).restart();}
+    applyVS();
+  });
+
+  // Loader out
+  const loader=document.getElementById("loader");
+  loader.classList.add("fade");
+  setTimeout(()=>{loader.style.display="none";document.getElementById("app").classList.add("ready");},700);
+
+  // Clock
+  setInterval(()=>{
+    const n=new Date();
+    document.getElementById("clk").textContent=
+      n.toLocaleDateString("en-GB",{weekday:"short",day:"2-digit",month:"short"}).toUpperCase()+
+      "  ·  "+n.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  },1000);
+
+  window.addEventListener("resize",()=>{
+    const W2=svgEl.clientWidth,H2=svgEl.clientHeight;
+    sim.force("center",d3.forceCenter(W2/2,H2/2).strength(.03));
+    sim.alpha(.08).restart();
+  });
+}
+
+function buildAdj(links){
+  NODES.forEach(n=>{adj[n.id]=new Set();});
+  links.forEach(l=>{
+    const s=l.source?.id||l.source,t=l.target?.id||l.target;
+    adj[s]?.add(t);adj[t]?.add(s);
+  });
+  linkIdx=links;
+}
+
+function populatePathSelects(){
+  [document.getElementById("pf-from"),document.getElementById("pf-to")].forEach(sel=>{
+    NODES.forEach(n=>{const o=document.createElement("option");o.value=n.id;o.textContent=n.name.split(" ").slice(0,2).join(" ");sel.appendChild(o);});
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  NODE RENDERING
+// ═══════════════════════════════════════════════════════════
+function buildNodeElements(){
+  gNodes.selectAll(".ng").remove();
+  const nd=gNodes.selectAll(".ng").data(NODES).enter().append("g").attr("class","ng")
+    .style("cursor","pointer")
+    .call(d3.drag()
+      .on("start",(e,d)=>{if(!e.active)sim.alphaTarget(.18).restart();d.fx=d.x;d.fy=d.y;})
+      .on("drag",(e,d)=>{d.fx=e.x;d.fy=e.y;})
+      .on("end",(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null;}))
+    .on("mouseenter",(e,d)=>hov(d,e))
+    .on("mouseleave",()=>unhov())
+    .on("click",(e,d)=>{e.stopPropagation();selectN(d);});
+
+  // Outer ambient glow (large, soft)
+  nd.append("circle").attr("class","ng-aura")
+    .attr("r",d=>nR(d)+22)
+    .attr("fill",d=>CAT_COL[d.cat]||"#fff")
+    .attr("fill-opacity",d=>d.score>=8?.05:.02)
+    .attr("stroke","none");
+
+  // Ring
+  nd.append("circle").attr("class","ng-ring")
+    .attr("r",d=>nR(d))
+    .attr("fill",d=>CAT_COL[d.cat]||"#fff")
+    .attr("fill-opacity",d=>{const a=autoScore(d);return a>=7?.12:a>=4?.07:.04;})
+    .attr("stroke",d=>CAT_COL[d.cat]||"#fff")
+    .attr("stroke-width",d=>d.score>=8?2.2:1.6)
+    .attr("filter",d=>`url(#${CAT_GLW[d.cat]||"gfcyan"})`);
+
+  // Inner fill (urgency dot)
+  nd.append("circle").attr("r",d=>Math.max(3,nR(d)*.28))
+    .attr("fill",d=>{
+      if(d.daysSince>60)return"rgba(255,0,200,.5)";
+      if(d.daysSince>30)return"rgba(255,107,53,.45)";
+      return CAT_COL[d.cat]||"#fff";
+    })
+    .attr("fill-opacity",.7)
+    .attr("stroke",d=>CAT_COL[d.cat]).attr("stroke-width",.5).attr("stroke-opacity",.4);
+
+  // Score ring (arc)
+  nd.each(function(d){
+    const r=nR(d)+5,a=autoScore(d)/10*2*Math.PI;
+    const x1=Math.sin(0)*r,y1=-Math.cos(0)*r;
+    const x2=Math.sin(a)*r,y2=-Math.cos(a)*r;
+    const large=a>Math.PI?1:0;
+    if(a>0.1){
+      d3.select(this).append("path")
+        .attr("d",`M${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2}`)
+        .attr("fill","none").attr("stroke",CAT_COL[d.cat]||"#fff").attr("stroke-width",1.5)
+        .attr("stroke-opacity",.55).attr("stroke-linecap","round");
+    }
+  });
+
+  // Label
+  nd.append("text").attr("class","ng-lbl")
+    .attr("dy",d=>nR(d)+14).attr("text-anchor","middle")
+    .attr("fill","rgba(255,255,255,.85)").attr("font-size",d=>Math.max(8,Math.min(10,nR(d)*.52))+"px")
+    .attr("font-family","Space Grotesk,sans-serif").attr("font-weight","400")
+    .style("text-shadow","0 0 10px rgba(0,0,0,1),0 0 6px rgba(0,0,0,1)")
+    .text(d=>{const p=d.name.split(" ");return p.length<=2?d.name:p.slice(0,2).join(" ");});
+
+  // Cold badge
+  nd.filter(d=>d.daysSince>30).append("circle")
+    .attr("cx",d=>nR(d)*.65).attr("cy",d=>-nR(d)*.65)
+    .attr("r",3.5).attr("fill","var(--mag)").attr("fill-opacity",.85)
+    .attr("class","ng-pulse").style("animation-delay",d=>(Math.random()*2)+"s");
+}
+
+// ═══════════════════════════════════════════════════════════
+//  HOVER / SELECT
+// ═══════════════════════════════════════════════════════════
+function hov(d,e){
+  if(selectedNode)return;
+  hovNode=d;
+  const conn=adj[d.id]||new Set();
+  d3.selectAll(".ng").transition().duration(140).style("opacity",nd=>nd.id===d.id||conn.has(nd.id)?1:.06);
+  d3.selectAll(".ng-ring").transition().duration(140)
+    .attr("stroke-width",nd=>nd.id===d.id?3.2:1.6)
+    .attr("fill-opacity",nd=>nd.id===d.id?.18:.07);
+  d3.selectAll(".lp").transition().duration(140)
+    .attr("stroke-opacity",l=>(l.source.id===d.id||l.target.id===d.id)?.75:.02)
+    .attr("stroke-width",l=>(l.source.id===d.id||l.target.id===d.id)?l.w*.5+.5:l.w*.3);
+  const tip=document.getElementById("tip");
+  const r=svgEl.getBoundingClientRect();
+  const tx=Math.min(e.clientX-r.left+16,r.width-230);
+  tip.style.left=tx+"px";tip.style.top=(e.clientY-r.top-10)+"px";tip.style.opacity="1";
+  const asc=autoScore(d);
+  const cold=d.daysSince>30;
+  tip.innerHTML=`<span style="color:${CAT_COL[d.cat]};font-weight:600">${d.name}</span>`+
+    `<br><span style="opacity:.5;font-size:8px">${d.role}</span>`+
+    `<br><span style="color:var(--gold)">Score ${asc}/10</span>`+
+    (cold?`<br><span style="color:var(--mag)">${d.daysSince>900?"Never contacted":d.daysSince+"d cold"}</span>`:"");
+}
+function unhov(){if(selectedNode)return;hovNode=null;applyVS();document.getElementById("tip").style.opacity="0";}
+
+function selectN(d){selectedNode=d;applyVS();openRP(d);awardXP(8,"Contact inspected");}
+function deselect(){selectedNode=null;hovNode=null;applyVS();closeRP();}
+function closeRP(){document.getElementById("rp").classList.remove("open");selectedNode=null;}
+
+function applyVS(){
+  const focus=selectedNode||hovNode;
+  d3.selectAll(".ng").transition().duration(180).style("opacity",nd=>{
+    if(focus){const c=adj[focus.id]||new Set();return nd.id===focus.id||c.has(nd.id)?1:.05;}
+    if(wrActive)return matchWR(nd)?1:.04;
+    if(filtCat!=="all")return nd.cat===filtCat?1:.05;
+    if(pathNodes)return pathNodes.has(nd.id)?1:.04;
+    if(selGoal){const m=new Set(NODES.filter(n=>(n.goals||[]).includes(selGoal)).map(n=>n.id));return m.has(nd.id)?1:.04;}
+    return 1;
+  });
+  d3.selectAll(".lp").transition().duration(180).attr("stroke-opacity",l=>{
+    if(focus){const c=adj[focus.id]||new Set();const s=l.source.id||l.source,t=l.target.id||l.target;return(s===focus.id||t===focus.id)?.65:.02;}
+    if(wrActive)return(matchWR(l.source)&&matchWR(l.target))?.3:.02;
+    if(filtCat!=="all")return(l.source.cat===filtCat&&l.target.cat===filtCat)?.3:.02;
+    if(pathNodes)return 0;
+    return .18;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RIGHT PANEL
+// ═══════════════════════════════════════════════════════════
+function openRP(d){
+  const col=CAT_COL[d.cat]||"#fff";
+  const asc=autoScore(d),cold=d.daysSince>30;
+  const sfc=asc>=8?"var(--grn)":asc>=5?"var(--gold)":"var(--mag)";
+  const dc=d.daysSince>30?"var(--mag)":d.daysSince>14?"var(--gold)":"var(--grn)";
+  const mgs=GOALS_LIST.filter(g=>(d.goals||[]).includes(g.code));
+  const conns=[...(adj[d.id]||[])].slice(0,5).map(id=>nmap.get(id)).filter(Boolean);
+
+  // Synthetic brief
+  const briefs=[];
+  if(cold)briefs.push(`Signal loss: ${d.daysSince>900?"No contact established":d.daysSince+"d since last contact"}. Relationship cooling.`);
+  if(asc>=7)briefs.push(`High-value node. Priority tier. Maintain monthly cadence.`);
+  if((d.goals||[]).length>=3)briefs.push(`Linked to ${d.goals.length} active goals — high-leverage contact.`);
+  if(d.tags?.includes("LOR"))briefs.push(`LOR potential. Do not let go cold before ERAS deadline.`);
+  if(d.cat==="iv"||d.cat==="eu")briefs.push(`Investor-tier contact. Every touchpoint should show traction.`);
+  const brief=briefs[0]||`${CAT_LBL[d.cat]||d.cat} contact. ${d.role}.`;
+
+  document.getElementById("rpc").innerHTML=`
+    <div class="rpbadge" style="background:${col}18;color:${col};border-color:${col}28">${CAT_LBL[d.cat]||d.cat}</div>
+    <div class="rpname">${d.name}</div>
+    <div class="rprole">${d.role}${d.loc?` · ${d.loc}`:""}</div>
+    ${cold?`<div class="coldw">⚠ ${d.daysSince>900?"Never contacted — establish first touch":d.daysSince+"d cold. Act now."}</div>`:""}
+    ${!cold&&d.daysSince<7?`<div class="hotw">✓ Active — ${d.daysSince===0?"Contacted today":d.daysSince+"d ago"}</div>`:""}
+    <div id="brief-box">${brief}</div>
+    <div class="rpsect" style="margin-top:12px">
+      <div class="rptitle">Signal Strength</div>
+      <div class="rel-ring">
+        <svg class="ring-svg" width="54" height="54" viewBox="0 0 54 54">
+          <circle cx="27" cy="27" r="22" fill="none" stroke="${col}18" stroke-width="4"/>
+          <circle cx="27" cy="27" r="22" fill="none" stroke="${col}" stroke-width="4"
+            stroke-dasharray="${(asc/10)*138.2} 138.2" stroke-dashoffset="34.5"
+            stroke-linecap="round" filter="url(#${CAT_GLW[d.cat]||"gfcyan"})"/>
+          <text x="27" y="31" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="${sfc}">${asc}</text>
+        </svg>
+        <div class="ring-info">
+          <div class="rprow"><span class="rpk">My score</span><span class="rpv">${d.score}/10</span></div>
+          <div class="rprow"><span class="rpk">Auto-adj</span><span class="rpv" style="color:${sfc}">${asc}/10</span></div>
+          <div class="rprow"><span class="rpk">Last contact</span><span class="rpv" style="color:${dc}">${d.daysSince>900?"Never":d.daysSince+"d ago"}</span></div>
+        </div>
+      </div>
+    </div>
+    ${(d.tags||[]).length?`<div class="rpsect"><div class="rptitle">Tags</div><div class="tagrow">${d.tags.map(t=>`<span class="tag" style="border-color:${col}28;color:${col}bb;background:${col}0a">${t}</span>`).join("")}</div></div>`:""}
+    ${mgs.length?`<div class="rpsect"><div class="rptitle">Goals (${mgs.length})</div><div class="tagrow">${mgs.map(g=>`<span class="tag" style="border-color:rgba(255,215,0,.2);color:var(--gold);background:rgba(255,215,0,.05)">${g.code} · ${g.text}</span>`).join("")}</div></div>`:""}
+    ${d.nextAction?`<div class="rpsect"><div class="rptitle">Next Action</div><div class="action-item">${d.nextAction}</div></div>`:""}
+    ${conns.length?`<div class="rpsect"><div class="rptitle">Connected (${conns.length})</div>${conns.map(c=>`<div class="intro-node" onclick="selectN(nmap.get('${c.id}'))"><div class="intro-dot" style="background:${CAT_COL[c.cat]||'#fff'}"></div><div class="intro-name">${c.name}</div><span class="intro-arrow">→</span></div>`).join("")}</div>`:""}
+    <div style="margin-top:8px;">
+      <button class="rpbtn" onclick="markC('${d.id}')">✓ Mark Contacted Today</button>
+      <button class="rpbtn" onclick="openDraft('${d.id}')">✉ Draft Message</button>
+      <button class="rpbtn" onclick="setPathFrom('${d.id}')">⟶ Find Path From Here</button>
+      <button class="rpbtn mg" onclick="openIntroFor('${d.id}')">🔗 Find Introduction Path</button>
+    </div>
+  `;
+  document.getElementById("rp").classList.add("open");
+}
+
+function markC(id){
+  const n=nmap.get(id);if(!n)return;
+  n.daysSince=0;sessionContacts++;
+  buildNodeElements();sim.alpha(.1).restart();
+  if(selectedNode?.id===id)openRP(n);
+  updateStats();awardXP(15,"Contact marked — momentum maintained");checkChallenges();
+}
+function setPathFrom(id){document.getElementById("pf-from").value=id;closeRP();}
+
+// ═══════════════════════════════════════════════════════════
+//  GOAL PANEL
+// ═══════════════════════════════════════════════════════════
+function toggleGoalPanel(){
+  const gp=document.getElementById("gp");
+  const isMobile=window.innerWidth<=768;
+  if(isMobile){
+    mobilGpOpen=!mobilGpOpen;
+    gp.classList.toggle("mobile-open",mobilGpOpen);
+    gp.classList.toggle("collapsed",!mobilGpOpen);
+  } else {
+    gpOpen=!gpOpen;
+    gp.classList.toggle("collapsed",!gpOpen);
+  }
+}
+
+function renderGoals(){
+  const el=document.getElementById("gl");el.innerHTML="";
+  GOALS_LIST.forEach(g=>{
+    const ms=NODES.filter(n=>(n.goals||[]).includes(g.code));
+    const avgScore=ms.length?ms.reduce((a,n)=>a+autoScore(n),0)/ms.length:0;
+    const div=document.createElement("div");
+    div.className="gi"+(selGoal===g.code?" sel":"");
+    div.onclick=()=>{
+      selGoal=selGoal===g.code?null:g.code;goalsClicked++;
+      renderGoals();checkChallenges();
+      applyVS();
+    };
+    const chips=ms.length?ms.slice(0,3).map(m=>{
+      const a=autoScore(m);
+      const[bg,fc]=a>=7?["rgba(0,255,136,.15)","#00FF88"]:a>=4?["rgba(255,215,0,.15)","#FFD700"]:["rgba(255,0,200,.15)","#FF00C8"];
+      return`<span class="gich" style="background:${bg};color:${fc}">${m.name.split(" ")[0]} ${a}/10</span>`;
+    }).join(""):"<span class='gich' style='background:rgba(255,0,200,.1);color:var(--mag)'>No contacts</span>";
+    const pct=ms.length?Math.round(avgScore*10):0;
+    div.innerHTML=`<div class="gic">${g.code} · ${g.domain}</div><div class="git">${g.text}</div><div class="gics">${chips}</div><div class="g-prog"><div class="g-prog-fill" style="width:${pct}%"></div></div>`;
+    el.appendChild(div);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  WAR ROOM
+// ═══════════════════════════════════════════════════════════
+function matchWR(d){
+  if(!wrQuery)return true;
+  const q=wrQuery.toLowerCase();
+  return d.name?.toLowerCase().includes(q)||d.role?.toLowerCase().includes(q)||
+    (d.tags||[]).some(t=>t.toLowerCase().includes(q))||
+    (d.goals||[]).some(g=>g.toLowerCase().includes(q))||
+    (d.loc||"").toLowerCase().includes(q);
+}
+function clearWR(){document.getElementById("wri").value="";wrQuery="";wrActive=false;NODES.forEach(n=>{n.fx=null;n.fy=null;});sim.alpha(.3).restart();applyVS();}
+
+// ═══════════════════════════════════════════════════════════
+//  PATHFINDER
+// ═══════════════════════════════════════════════════════════
+function dijkstra(start,end){
+  const dist={},prev={},unvis=new Set(NODES.map(n=>n.id));
+  NODES.forEach(n=>{dist[n.id]=Infinity;});dist[start]=0;
+  while(unvis.size){
+    let u=null,mn=Infinity;
+    unvis.forEach(id=>{if(dist[id]<mn){mn=dist[id];u=id;}});
+    if(!u||u===end)break;unvis.delete(u);
+    linkIdx.forEach(l=>{
+      const s=l.source?.id||l.source,t=l.target?.id||l.target;
+      let nb=null;if(s===u)nb=t;else if(t===u)nb=s;
+      if(!nb||!unvis.has(nb))return;
+      const alt=dist[u]+(4-Math.min(3,l.w||1));
+      if(alt<dist[nb]){dist[nb]=alt;prev[nb]=u;}
+    });
+  }
+  const path=[];let cur=end;while(cur){path.unshift(cur);cur=prev[cur];}
+  return path[0]===start?path:null;
+}
+function runPath(){
+  const fr=document.getElementById("pf-from").value,to=document.getElementById("pf-to").value;
+  if(!fr||!to||fr===to)return;
+  const path=dijkstra(fr,to);
+  if(!path||path.length<2){
+    const pl=document.getElementById("path-legend");pl.textContent="No path found — no shared connections.";pl.style.display="block";return;
+  }
+  pathNodes=new Set(path);applyVS();drawPathOverlay(path);
+  const names=path.map(id=>nmap.get(id)?.name.split(" ")[0]).join(" → ");
+  const pl=document.getElementById("path-legend");
+  pl.innerHTML=`⟶ ${names} · ${path.length-1} hop${path.length>2?"s":""}`;pl.style.display="block";
+  pathRan=true;awardXP(25,"Path discovered");checkChallenges();
+}
+function drawPathOverlay(path){
+  gPath.selectAll("*").remove();
+  for(let i=0;i<path.length-1;i++){
+    const s=nmap.get(path[i]),t=nmap.get(path[i+1]);if(!s||!t)continue;
+    const l=linkIdx.find(k=>{const ks=k.source?.id||k.source,kt=k.target?.id||k.target;return(ks===s.id&&kt===t.id)||(ks===t.id&&kt===s.id);});
+    const c=l?Math.max(.2,1-(l.w||1)*.12):.4;
+    gPath.append("path").attr("class","path-anim").attr("stroke","#FF00C8")
+      .attr("d",()=>{if(!s.x)return"";const dx=t.x-s.x,dy=t.y-s.y;return`M${s.x},${s.y}Q${(s.x+t.x)/2-dy*c*.28},${(s.y+t.y)/2+dx*c*.28} ${t.x},${t.y}`;})
+      .style("animation-delay",`${i*.2}s`);
+  }
+}
+function refreshPathOverlay(){
+  gPath.selectAll(".path-anim").each(function(d){});
+}
+function clearPath(){pathNodes=null;pathEdges=null;gPath.selectAll("*").remove();
+  document.getElementById("path-legend").style.display="none";
+  document.getElementById("pf-from").value="";document.getElementById("pf-to").value="";applyVS();}
+
+// ═══════════════════════════════════════════════════════════
+//  ADD CONTACT
+// ═══════════════════════════════════════════════════════════
+function buildTagChips(){
+  const tc=document.getElementById("tag-chips");
+  TAG_PRESETS.forEach(t=>{
+    const el=document.createElement("div");el.className="qa-chip";el.textContent=t;
+    el.onclick=()=>toggleTag(t,el);tc.appendChild(el);
+  });
+}
+function toggleTag(t,el){
+  if(selTags.has(t)){selTags.delete(t);el.classList.remove("sel");}
+  else{selTags.add(t);el.classList.add("sel");}
+  renderSelTags();
+}
+function addCustomTag(e){if(e.key!=="Enter")return;const v=e.target.value.trim();if(!v)return;selTags.add(v);renderSelTags();e.target.value="";}
+function renderSelTags(){document.getElementById("sel-tags").innerHTML=[...selTags].map(t=>`<div class="qa-chip sel" onclick="removeTag('${t}',this)">${t} ✕</div>`).join("");}
+function removeTag(t){selTags.delete(t);renderSelTags();}
+function liveNamePreview(){const n=document.getElementById("an").value.trim();const p=document.getElementById("add-preview");if(n){p.style.display="block";document.getElementById("prev-name").textContent=n;}else p.style.display="none";}
+function openAdd(){openModal("add-modal");}
+function closeAdd(){closeModal("add-modal");selTags.clear();renderSelTags();}
+
+function addContact(){
+  const name=document.getElementById("an").value.trim();if(!name){alert("Name required");return;}
+  const nid="n"+(Math.max(0,...NODES.map(n=>+n.id.slice(1)))+1);
+  const gs=document.getElementById("ag").value;
+  const node={id:nid,name,role:document.getElementById("ar").value,cat:document.getElementById("ac").value,
+    loc:document.getElementById("al").value,score:parseInt(document.getElementById("as").value)||5,
+    daysSince:0,goals:gs?gs.split(",").map(g=>g.trim()).filter(Boolean):[],
+    tags:[...selTags],nextAction:document.getElementById("ana").value,
+    why:document.getElementById("aw").value};
+  const lc=document.getElementById("ad").value;
+  if(lc)node.daysSince=Math.floor((Date.now()-new Date(lc))/864e5);
+  NODES.push(node);nmap.set(nid,node);adj[nid]=new Set();
+  const W=svgEl.clientWidth,H=svgEl.clientHeight;
+  node.x=W/2+(Math.random()-.5)*120;node.y=H/2+(Math.random()-.5)*120;node.vx=0;node.vy=0;
+  sim.nodes(NODES);sim.alpha(.6).restart();
+  buildNodeElements();updateStats();renderGoals();
+  [document.getElementById("pf-from"),document.getElementById("pf-to")].forEach(sel=>{
+    const o=document.createElement("option");o.value=nid;o.textContent=name.split(" ").slice(0,2).join(" ");sel.appendChild(o);
+  });
+  closeAdd();awardXP(50,"New contact added");checkChallenges();
+  ["an","ar","al","ag","aw","ana"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("as").value=5;document.getElementById("add-preview").style.display="none";
+  selTags.clear();renderSelTags();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DRAFT MESSAGE
+// ═══════════════════════════════════════════════════════════
+function openDraft(id){
+  draftTarget=nmap.get(id);if(!draftTarget)return;
+  document.getElementById("draft-name").textContent=draftTarget.name;
+  document.getElementById("draft-area").value="";
+  openModal("draft-modal");
+}
+function draftTpl(type){
+  if(!draftTarget)return;
+  const d=draftTarget,name=d.name.split(" ")[0];
+  const templates={
+    reachout:`Hi ${name},\n\nI hope this finds you well. It's been a while since we last connected, and I wanted to reach out.\n\nI've been making progress on several fronts since we last spoke — particularly with Uzimatek, my health-tech venture, and my clinical rotations at MTRH.\n\nWould you be open to a brief 15-minute call this month? I'd love to share what I've been building and hear what's new on your end.\n\nWith respect,\nAdrian Kuloba`,
+    lor:`Dear ${name},\n\nI hope you're doing well. I'm writing to kindly ask whether you would be willing to support my ERAS application with a Letter of Recommendation.\n\nWorking with you during ${d.tags?.[0]||"my rotation"} was genuinely formative. ${d.nextAction||""}\n\nI would be happy to send you a brief summary of my clinical experience, research, and goals for your reference.\n\nThank you sincerely for your time and mentorship.\n\nWith respect,\nAdrian Kuloba`,
+    update:`Hi ${name},\n\nI wanted to share a brief update since we last connected.\n\nOn the clinical side, I'm currently in my final year at Moi University / MTRH. On the entrepreneurship side, Uzimatek — my health informatics startup — has been progressing well: we're working toward our first clinic pilot and a Mastercard Foundation follow-up.\n\nI remember our conversation about ${d.tags?.[1]||"your work"} and wanted to stay on your radar as I continue building toward my goals.\n\nBest,\nAdrian`,
+    intro:`Hi ${name},\n\nI hope you're well. I wanted to reach out to ask whether you might be able to connect me with ${d.knows||"someone in your network"} — given your relationships there.\n\nI'm currently working on Uzimatek, a health informatics platform focused on SHA claims automation for Kenyan clinics. We recently placed as runner-up in the Mastercard Foundation Healthcare Innovation pitch.\n\nA warm introduction would mean a great deal. Happy to send a one-pager first if helpful.\n\nWith respect,\nAdrian`,
+    uzimatek:`Dear ${name},\n\nI'm Adrian Kuloba — 6th year medical student at Moi University / MTRH and founder of Uzimatek, a health informatics startup automating SHA claims reconciliation for Kenyan clinics.\n\nWe recently placed runner-up at the Mastercard Foundation Healthcare Innovation pitch. Our first pilot clinic is in final onboarding.\n\nI believe our work aligns with your mandate around ${d.tags?.[0]||"health innovation in Africa"}. I'd love to share our one-pager and explore how we might work together.\n\nWith respect,\nAdrian Kuloba\nFounder, Uzimatek`
+  };
+  document.getElementById("draft-area").value=templates[type]||"";
+  draftsGenerated++;checkChallenges();awardXP(10,"Message drafted");
+}
+function copyDraft(){
+  const txt=document.getElementById("draft-area").value;
+  navigator.clipboard?.writeText(txt).then(()=>awardXP(5,"Message copied")).catch(()=>{});
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ANALYTICS
+// ═══════════════════════════════════════════════════════════
+function openModal(id){
+  document.getElementById(id).classList.add("show");
+  if(id==="analytics-modal"){analyticsOpened=true;checkChallenges();renderAnalytics();}
+  if(id==="signal-modal"){signalOpened=true;checkChallenges();renderSignals();}
+  if(id==="intro-modal")renderIntros();
+}
+function closeModal(id){document.getElementById(id).classList.remove("show");}
+
+function renderAnalytics(){
+  const total=NODES.length;
+  const cold=NODES.filter(n=>n.daysSince>30).length;
+  const hot=NODES.filter(n=>n.daysSince<=7).length;
+  const avgScore=(NODES.reduce((a,n)=>a+autoScore(n),0)/total).toFixed(1);
+  const highVal=NODES.filter(n=>autoScore(n)>=7).length;
+  const neverContacted=NODES.filter(n=>n.daysSince>900).length;
+
+  document.getElementById("an-cards").innerHTML=
+    `<div class="an-card"><div class="an-val" style="color:var(--cyan)">${total}</div><div class="an-lbl">Total Nodes</div></div>`+
+    `<div class="an-card"><div class="an-val" style="color:var(--grn)">${hot}</div><div class="an-lbl">Active ≤7d</div></div>`+
+    `<div class="an-card"><div class="an-val" style="color:var(--mag)">${cold}</div><div class="an-lbl">Cold >30d</div></div>`+
+    `<div class="an-card"><div class="an-val" style="color:var(--gold)">${avgScore}</div><div class="an-lbl">Avg Signal</div></div>`+
+    `<div class="an-card"><div class="an-val" style="color:var(--purp)">${highVal}</div><div class="an-lbl">High Value</div></div>`+
+    `<div class="an-card"><div class="an-val" style="color:var(--red)">${neverContacted}</div><div class="an-lbl">Untouched</div></div>`;
+
+  // Cat bars
+  const cats=Object.keys(CAT_LBL);
+  document.getElementById("an-cats").innerHTML=cats.map(c=>{
+    const cnt=NODES.filter(n=>n.cat===c).length;
+    const pct=Math.round(cnt/total*100);
+    return`<div class="an-bar-row"><div class="an-bar-lbl" style="color:${CAT_COL[c]}">${CAT_LBL[c]}</div><div class="an-bar-wrap"><div class="an-bar-fill" style="width:${pct}%;background:${CAT_COL[c]}"></div></div><div class="an-bar-num">${cnt}</div></div>`;
+  }).join("");
+
+  // Goal coverage
+  document.getElementById("an-goals").innerHTML=GOALS_LIST.map(g=>{
+    const cnt=NODES.filter(n=>(n.goals||[]).includes(g.code)).length;
+    const pct=cnt?Math.min(100,Math.round(cnt/total*400)):0;
+    const fc=cnt>=3?"var(--grn)":cnt>=1?"var(--gold)":"var(--mag)";
+    return`<div class="an-bar-row"><div class="an-bar-lbl" style="color:${fc};font-size:7.5px">${g.code}</div><div class="an-bar-wrap"><div class="an-bar-fill" style="width:${pct}%;background:${fc}"></div></div><div class="an-bar-num">${cnt}</div></div>`;
+  }).join("");
+
+  // Health narrative
+  const healthLines=[];
+  if(cold/total>.5)healthLines.push(`⚠ ${Math.round(cold/total*100)}% of network is cold. Relationship erosion is accelerating.`);
+  else if(cold/total>.3)healthLines.push(`⚡ ${cold} contacts are cold. Focus warm-up effort on highest-value first.`);
+  else healthLines.push(`✓ Network health is solid. ${hot} contacts active in last 7 days.`);
+  if(neverContacted>5)healthLines.push(`⚠ ${neverContacted} contacts have never been reached. Some may need removal.`);
+  healthLines.push(`◈ Your strongest cluster: ${cats.map(c=>({c,n:NODES.filter(x=>x.cat===c).length})).sort((a,b)=>b.n-a.n)[0]?.c||"–"} (${CAT_LBL[cats.map(c=>({c,n:NODES.filter(x=>x.cat===c).length})).sort((a,b)=>b.n-a.n)[0]?.c||"us"]}).`);
+  document.getElementById("an-health").innerHTML=healthLines.map(l=>`<div>${l}</div>`).join("");
+
+  // Top actions
+  const actionNodes=NODES.filter(n=>n.nextAction&&n.daysSince>14).sort((a,b)=>autoScore(b)-autoScore(a)).slice(0,5);
+  document.getElementById("an-actions").innerHTML=actionNodes.map(n=>
+    `<div class="action-item" style="cursor:pointer;margin-bottom:5px" onclick="closeModal('analytics-modal');selectN(nmap.get('${n.id}'))">
+      <span style="color:${CAT_COL[n.cat]};font-weight:600">${n.name}</span> · ${n.nextAction}
+    </div>`).join("")||"<div style='font-family:var(--mono);font-size:8.5px;color:var(--t3)'>All contacts up to date.</div>";
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INTRO FINDER
+// ═══════════════════════════════════════════════════════════
+function openIntroFor(id){
+  const target=nmap.get(id);if(!target)return;
+  renderIntros(target);
+  openModal("intro-modal");
+}
+function renderIntros(target){
+  const coldNodes=NODES.filter(n=>n.daysSince>60||n.daysSince>900);
+  const targetNodes=target?[target]:coldNodes.slice(0,12);
+  const list=document.getElementById("intro-list");
+  list.innerHTML="";
+  targetNodes.forEach(tn=>{
+    const path=dijkstra("n22",tn.id)||dijkstra("n20",tn.id)||dijkstra("n23",tn.id)||dijkstra("n18",tn.id);
+    if(!path||path.length<2)return;
+    const row=document.createElement("div");row.className="intro-row";
+    const chain=path.map((pid,i)=>{
+      const pn=nmap.get(pid);
+      return`<span class="ic-node" style="border-color:${CAT_COL[pn?.cat]||'#fff'}40;color:${CAT_COL[pn?.cat]||'#fff'}" onclick="closeModal('intro-modal');selectN(nmap.get('${pid}'))">${pn?.name.split(" ")[0]||pid}</span>${i<path.length-1?'<span class="ic-arr">→</span>':""}`;
+    }).join("");
+    row.innerHTML=`<div><div style="font-size:9px;font-weight:500;margin-bottom:4px;color:${CAT_COL[tn.cat]||'#fff'}">${tn.name}</div><div class="intro-chain">${chain}</div><div style="font-family:var(--mono);font-size:7.5px;color:var(--t3);margin-top:4px">${path.length-1} hop${path.length>2?"s":""}</div></div>`;
+    list.appendChild(row);
+  });
+  if(!list.children.length)list.innerHTML="<div style='font-family:var(--mono);font-size:8.5px;color:var(--t3);padding:10px 0'>No introduction paths found in current graph.</div>";
+}
+
+// ═══════════════════════════════════════════════════════════
+//  NETWORK SIGNALS
+// ═══════════════════════════════════════════════════════════
+function renderSignals(){
+  const signals=[];
+  // Cold priority signal
+  const highCold=NODES.filter(n=>n.daysSince>30&&autoScore(n)>=5).sort((a,b)=>autoScore(b)-autoScore(a));
+  if(highCold.length)signals.push({icon:"❄",color:"var(--cyan)",bg:"rgba(0,229,255,.08)",title:`${highCold.length} high-value contacts going cold`,sub:`Priority re-engagement: ${highCold.slice(0,3).map(n=>n.name.split(" ")[0]).join(", ")}. Signal decaying.`,tags:["Cold Alert","Priority"]});
+
+  // LOR deadline signal
+  const lorNodes=NODES.filter(n=>(n.tags||[]).includes("LOR")&&n.daysSince>30);
+  if(lorNodes.length)signals.push({icon:"📋",color:"var(--mag)",bg:"rgba(255,0,200,.07)",title:`${lorNodes.length} LOR contact${lorNodes.length>1?"s":""} going cold`,sub:`ERAS timeline is fixed. LOR requests need warm relationships. Act before it's too late.`,tags:["LOR","ERAS","Urgent"]});
+
+  // Investor momentum
+  const invActive=NODES.filter(n=>(n.cat==="iv"||n.cat==="eu")&&n.daysSince<=30);
+  const invCold=NODES.filter(n=>(n.cat==="iv"||n.cat==="eu")&&n.daysSince>30);
+  if(invCold.length>invActive.length)signals.push({icon:"💰",color:"var(--gold)",bg:"rgba(255,215,0,.07)",title:"Investor pipeline cooling",sub:`${invCold.length} investor contacts dormant. MCF momentum window is open now. Send Q1 update this week.`,tags:["Investors","Uzimatek","Momentum"]});
+  else signals.push({icon:"💰",color:"var(--grn)",bg:"rgba(0,255,136,.06)",title:"Investor pipeline active",sub:`${invActive.length} investor contacts engaged. Maintain monthly touchpoints to build trust.`,tags:["Investors","Active"]});
+
+  // Uzimatek cluster
+  const uzNodes=NODES.filter(n=>(n.tags||[]).some(t=>t.includes("Uzimatek")||t.includes("SHA")));
+  signals.push({icon:"⚡",color:"var(--purp)",bg:"rgba(184,110,255,.07)",title:`${uzNodes.length} Uzimatek-linked contacts`,sub:`SHA ecosystem network covers ${uzNodes.length} nodes. Each touchpoint should demonstrate traction. Build social proof loop.`,tags:["Uzimatek","SHA","Network Effect"]});
+
+  // Partnership signal
+  const partners=NODES.filter(n=>n.cat==="kb"&&n.daysSince<=7);
+  if(partners.length)signals.push({icon:"🤝",color:"var(--grn)",bg:"rgba(0,255,136,.06)",title:"Business partnership active",sub:`${partners.map(n=>n.name.split(" ")[0]).join(" & ")} engaged this week. Formalise written agreement before scaling consignment.`,tags:["Kenya Biz","Partnership","Urgent"]});
+
+  // Network health score
+  const nh=Math.round(NODES.reduce((a,n)=>a+autoScore(n),0)/NODES.length*10);
+  const nhCol=nh>=65?"var(--grn)":nh>=45?"var(--gold)":"var(--mag)";
+  signals.push({icon:"◎",color:nhCol,bg:"rgba(255,255,255,.03)",title:`Network Health Score: ${nh}/100`,sub:`Based on relationship scores adjusted for recency. Benchmark: 65+ is healthy. Your weakest cluster: ${Object.keys(CAT_LBL).map(c=>({c,s:NODES.filter(n=>n.cat===c).reduce((a,n)=>a+autoScore(n),0)||0})).sort((a,b)=>a.s-b.s)[0]?.c||"–"}.`,tags:["Health Score","Benchmark"]});
+
+  document.getElementById("signal-list").innerHTML=signals.map(s=>
+    `<div class="sig-row"><div class="sig-icon" style="background:${s.bg}">${s.icon}</div>
+    <div class="sig-body"><div class="sig-title" style="color:${s.color}">${s.title}</div>
+    <div class="sig-sub">${s.sub}</div>
+    <div style="margin-top:5px">${s.tags.map(t=>`<span class="sig-tag" style="border-color:${s.color}30;color:${s.color}bb">${t}</span>`).join("")}</div>
+    </div></div>`).join("");
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PULSE TICKER
+// ═══════════════════════════════════════════════════════════
+function renderPulseTicker(){
+  const items=NODES.filter(n=>n.nextAction).sort((a,b)=>autoScore(b)-autoScore(a)).slice(0,16);
+  const html=items.map(n=>
+    `<div class="pulse-item"><div class="pi-dot" style="background:${CAT_COL[n.cat]||'#fff'}"></div><span class="pi-name">${n.name.split(" ")[0]}</span><span class="pi-action">→ ${n.nextAction.slice(0,55)}${n.nextAction.length>55?"...":""}</span></div>`
+  ).join("");
+  document.getElementById("pulse-inner").innerHTML=html+html; // duplicate for seamless loop
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STATS
+// ═══════════════════════════════════════════════════════════
+function updateStats(){
+  document.getElementById("s-tot").textContent=NODES.length;
+  document.getElementById("s-cold").textContent=NODES.filter(n=>n.daysSince>30).length;
+  document.getElementById("s-act").textContent=NODES.filter(n=>n.daysSince<=7).length;
+  document.getElementById("s-xp").textContent=XP;
+}
+function resetSim(){
+  NODES.forEach(n=>{n.fx=null;n.fy=null;});sim.alpha(.6).restart();
+  clearWR();clearPath();filtCat="all";
+  document.querySelectorAll(".pill").forEach(p=>{p.classList.remove("on");if(p.dataset.c==="all")p.classList.add("on");});
+  d3.select("#main-svg").transition().duration(600).call(window._zoom.transform,d3.zoomIdentity);
+  applyVS();
+}
+function zBy(f){d3.select("#main-svg").transition().duration(280).call(window._zoom.scaleBy,f);}
+
+// ═══════════════════════════════════════════════════════════
+//  GAMES
+// ═══════════════════════════════════════════════════════════
+const QUIZ_TYPES=[
+  {gen:()=>{const n=rand(NODES);return{q:`Which category is <b>${n.name}</b> in?`,hint:"Think about how and where you met.",opts:shuffle([CAT_LBL[n.cat],...shuffle(Object.values(CAT_LBL).filter(v=>v!==CAT_LBL[n.cat])).slice(0,3)]),ans:CAT_LBL[n.cat],explain:`${n.name} is <b>${CAT_LBL[n.cat]}</b>. ${n.role}.`};}},
+  {gen:()=>{const n=rand(NODES.filter(n=>n.daysSince<500));const wrong=NODES.filter(x=>x.id!==n.id);const w1=rand(wrong).daysSince,w2=rand(wrong).daysSince,w3=rand(wrong).daysSince;return{q:`Days since last contact with <b>${n.name}</b>?`,hint:"Trust your gut — relationship gravity is real.",opts:shuffle([n.daysSince.toString(),w1.toString(),w2.toString(),w3.toString()]),ans:n.daysSince.toString(),explain:`You last spoke to ${n.name} <b>${n.daysSince} days ago</b>. ${n.daysSince>30?"Cold — act now.":"Still warm."}`};}},
+  {gen:()=>{const n=rand(NODES.filter(n=>(n.goals||[]).length>0));const g=rand(n.goals);const others=GOALS_LIST.filter(x=>!n.goals.includes(x.code));return{q:`Which goal is <b>${n.name}</b> linked to?`,hint:"Think about what they can help you achieve.",opts:shuffle([g,...shuffle(others.map(x=>x.code)).slice(0,3)]),ans:g,explain:`${n.name} → <b>${g}</b>: ${GOALS_LIST.find(x=>x.code===g)?.text||""}`};}},
+  {gen:()=>{const n=rand(NODES.filter(n=>(n.tags||[]).length>0));const t=rand(n.tags);const allTags=[...new Set(NODES.flatMap(x=>x.tags||[]))];const wrong=shuffle(allTags.filter(x=>!n.tags.includes(x))).slice(0,3);return{q:`Which tag belongs to <b>${n.name}</b>?`,hint:"Think about their organisation or specialty.",opts:shuffle([t,...wrong]),ans:t,explain:`${n.name} is tagged <b>${t}</b>. ${n.role}.`};}},
+  {gen:()=>{const n=rand(NODES.filter(n=>n.nextAction));return{q:`Next action for <b>${n.name.split(" ")[0]}</b>?`,hint:"What did you plan for this contact?",opts:[n.nextAction,...shuffle(NODES.filter(x=>x.id!==n.id&&x.nextAction).map(x=>x.nextAction)).slice(0,3)],ans:n.nextAction,explain:`Next action: <b>${n.nextAction}</b>`};}},
+];
+let quizQueue=[],quizQIdx=0,curQ=null;
+function openGame(type){
+  if(type==="quiz"){quizScore=0;quizQIdx=0;quizQueue=shuffle(QUIZ_TYPES.map(t=>t.gen())).slice(0,8);document.getElementById("quiz-score-display").textContent="XP: 0";renderQuiz();openModal("quiz-modal");}
+  else if(type==="challenge"){renderChallenges();openModal("challenge-modal");}
+  else if(type==="neglect"){renderNeglect();openModal("neglect-modal");}
+}
+function closeGame(type){closeModal(`${type}-modal`);}
+function renderQuiz(){
+  if(quizQIdx>=quizQueue.length){endQuiz();return;}
+  curQ=quizQueue[quizQIdx];quizAnswered=false;
+  document.getElementById("quiz-body").innerHTML=
+    `<div style="font-size:14px;font-weight:500;margin-bottom:4px;line-height:1.4">${curQ.q}</div>
+    <div style="font-size:8.5px;color:var(--t3);font-family:var(--mono);margin-bottom:18px">${curQ.hint}</div>
+    <div class="quiz-opts">${curQ.opts.map(o=>`<button class="quiz-opt" onclick="answerQuiz('${encodeURIComponent(o)}')">${o}</button>`).join("")}</div>
+    <div style="font-family:var(--mono);font-size:8px;color:var(--t3)">Q${quizQIdx+1}/${quizQueue.length}</div>`;
+  document.getElementById("quiz-next").style.display="none";
+}
+function answerQuiz(enc){
+  if(quizAnswered)return;quizAnswered=true;
+  const ans=decodeURIComponent(enc),correct=ans===curQ.ans;
+  if(correct){quizScore++;if(quizScore>quizHighScore)quizHighScore=quizScore;}
+  document.querySelectorAll(".quiz-opt").forEach(btn=>{
+    if(btn.textContent===curQ.ans)btn.classList.add("correct");
+    else if(btn.textContent===ans&&!correct)btn.classList.add("wrong");
+    btn.disabled=true;
+  });
+  const fb=document.createElement("div");fb.className="quiz-feedback";
+  fb.style.background=correct?"rgba(0,255,136,.07)":"rgba(255,0,200,.07)";
+  fb.style.border=`1px solid ${correct?"rgba(0,255,136,.2)":"rgba(255,0,200,.2)"}`;
+  fb.style.color=correct?"var(--grn)":"var(--mag)";
+  fb.innerHTML=`${correct?"✓ Correct":"✗ Incorrect"}<br><span style="color:var(--t2);font-size:8.5px">${curQ.explain}</span>`;
+  document.getElementById("quiz-body").appendChild(fb);
+  if(correct)awardXP(25,"Quiz correct");
+  document.getElementById("quiz-score-display").textContent=`XP: ${quizScore*25}`;
+  document.getElementById("quiz-next").style.display="block";
+}
+function nextQuestion(){quizQIdx++;renderQuiz();}
+function endQuiz(){
+  const pct=Math.round(quizScore/quizQueue.length*100);
+  document.getElementById("quiz-body").innerHTML=`<div style="text-align:center;padding:20px 0">
+    <div style="font-size:48px;font-family:var(--mono);color:var(--gold);margin-bottom:8px">${quizScore}/${quizQueue.length}</div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:4px">${pct>=80?"Elite network intelligence":"Keep learning your network"}</div>
+    <div style="font-family:var(--mono);font-size:9px;color:var(--t3)">Score: ${pct}% · +${quizScore*25} XP</div>
+    <div style="margin-top:16px;font-size:9px;color:var(--t3);font-family:var(--mono)">Gaps in the quiz reveal gaps in the relationship.<br>Open those contact panels and read them deeply.</div>
+  </div>`;
+  document.getElementById("quiz-next").style.display="none";
+  if(quizHighScore>=3)checkChallenges();
+}
+function renderChallenges(){
+  updateXPBar();
+  document.getElementById("ch-list").innerHTML=CHALLENGES.map(ch=>
+    `<div class="ch-card ${ch.done?"done":""}" id="ch-${ch.id}">
+      <div class="ch-title">${ch.title}</div><div class="ch-sub">${ch.desc}</div>
+      <div class="ch-pts">+${ch.pts} XP ${ch.done?'<span class="ch-status">✓ Complete</span>':""}</div>
+    </div>`).join("");
+}
+function renderNeglect(){
+  const sorted=[...NODES].sort((a,b)=>b.daysSince-a.daysSince);
+  document.getElementById("neg-list").innerHTML=sorted.map(n=>{
+    const col=n.daysSince>100?"#FF00C8":n.daysSince>30?"#FF6B35":n.daysSince>14?"#FFD700":"#00FF88";
+    const pct=Math.min(100,(n.daysSince/200)*100);
+    return`<div class="neglect-row" onclick="closeGame('neglect');selectN(nmap.get('${n.id}'))">
+      <div class="neg-dot" style="background:${col}"></div>
+      <div class="neg-name">${n.name}</div>
+      <div class="neg-bar-wrap"><div class="neg-bar" style="width:${pct}%;background:${col}"></div></div>
+      <div class="neg-days">${n.daysSince>900?"never":n.daysSince+"d"}</div>
+    </div>`;
+  }).join("");
+}
+
+window.addEventListener("load",init);
+</script>
+</body>
+</html>
