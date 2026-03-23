@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AK / Network Intelligence</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#d8d8d8;font-family:'DM Sans',sans-serif;}
+:root{
+  --bg:#000;--s1:#0c0c0c;--s2:#141414;--s3:#1e1e1e;
+  --b1:rgba(255,255,255,0.07);--b2:rgba(255,255,255,0.13);
+  --t1:#e8e8e8;--t2:#888;--t3:#444;
+  --gold:#c9a84c;--gold-a:rgba(201,168,76,0.13);
+  --red:#b03030;--grn:#2a8a50;--mono:'DM Mono',monospace;
+}
+/* LOADER */
+#loader{position:fixed;inset:0;background:#000;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;}
+.lo-logo{font-family:var(--mono);font-size:11px;letter-spacing:.28em;color:var(--gold);text-transform:uppercase;}
+.lo-bar{width:180px;height:1px;background:#1a1a1a;overflow:hidden;}
+.lo-fill{height:100%;background:var(--gold);animation:lobar 1.6s ease-in-out infinite;}
+@keyframes lobar{0%{width:0;margin-left:0}60%{width:100%;margin-left:0}100%{width:0;margin-left:100%}}
+.lo-sub{font-family:var(--mono);font-size:8.5px;color:var(--t3);letter-spacing:.1em;}
+/* LAYOUT */
+#app{display:flex;width:100vw;height:100vh;overflow:hidden;opacity:0;transition:opacity .5s;}
+#app.ready{opacity:1;}
+#cv{flex:1;position:relative;cursor:grab;}
+#cv.panning{cursor:grabbing;}
+canvas{position:absolute;inset:0;}
+/* TOP BAR */
+#bar{position:absolute;top:0;left:0;right:0;z-index:20;height:46px;
+  display:flex;align-items:center;gap:8px;padding:0 16px;
+  background:rgba(0,0,0,0.97);border-bottom:1px solid var(--b1);}
+.logo{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--gold);
+  text-transform:uppercase;white-space:nowrap;padding-right:14px;border-right:1px solid var(--b2);flex-shrink:0;}
+.logo b{color:var(--t3);font-weight:300;}
+#pills{display:flex;gap:3px;overflow-x:auto;scrollbar-width:none;flex:1;}
+#pills::-webkit-scrollbar{display:none;}
+.pill{padding:3px 10px;border-radius:2px;font-size:9px;letter-spacing:.07em;border:1px solid transparent;
+  cursor:pointer;transition:all .15s;font-family:var(--mono);text-transform:uppercase;
+  background:transparent;color:var(--t3);white-space:nowrap;flex-shrink:0;}
+.pill:hover{color:var(--t2);border-color:var(--b1);}
+.pill.on{color:var(--t1);border-color:var(--b2);background:var(--s2);}
+.pill.on.us{color:#6ab4f0;border-color:rgba(106,180,240,.3);background:rgba(106,180,240,.06);}
+.pill.on.am{color:#e07878;border-color:rgba(224,120,120,.3);background:rgba(224,120,120,.06);}
+.pill.on.kb{color:#5cc47a;border-color:rgba(92,196,122,.3);background:rgba(92,196,122,.06);}
+.pill.on.iv{color:#d4a84b;border-color:rgba(212,168,75,.3);background:rgba(212,168,75,.06);}
+.pill.on.co{color:#b07ae0;border-color:rgba(176,122,224,.3);background:rgba(176,122,224,.06);}
+.pill.on.po{color:#4ac8e0;border-color:rgba(74,200,224,.3);background:rgba(74,200,224,.06);}
+.pill.on.ed{color:#e09060;border-color:rgba(224,144,96,.3);background:rgba(224,144,96,.06);}
+.pill.on.eu{color:#9470d8;border-color:rgba(148,112,216,.3);background:rgba(148,112,216,.06);}
+#tr{margin-left:auto;display:flex;align-items:center;gap:7px;flex-shrink:0;}
+.sw{position:relative;}
+.si{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:10px;pointer-events:none;}
+#srch{background:var(--s2);border:1px solid var(--b1);border-radius:2px;
+  padding:4px 9px 4px 25px;color:var(--t1);font-size:10px;font-family:var(--mono);
+  width:140px;outline:none;transition:border-color .15s;}
+#srch:focus{border-color:var(--b2);}
+#srch::placeholder{color:var(--t3);}
+.ibtn{padding:4px 10px;border-radius:2px;background:transparent;border:1px solid var(--b1);
+  color:var(--t2);font-size:9px;cursor:pointer;font-family:var(--mono);
+  text-transform:uppercase;letter-spacing:.1em;transition:all .15s;white-space:nowrap;}
+.ibtn:hover{border-color:var(--b2);color:var(--t1);}
+.ibtn.syncing{color:var(--gold);border-color:rgba(201,168,76,.3);animation:blink 1s ease infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.addb{padding:4px 13px;border-radius:2px;background:transparent;border:1px solid var(--gold);
+  color:var(--gold);font-size:9px;cursor:pointer;font-family:var(--mono);
+  text-transform:uppercase;letter-spacing:.14em;transition:all .15s;white-space:nowrap;}
+.addb:hover{background:var(--gold-a);}
+/* ZOOM */
+#zc{position:absolute;bottom:120px;left:18px;z-index:20;display:flex;flex-direction:column;gap:2px;}
+.zb{width:28px;height:28px;background:var(--s1);border:1px solid var(--b1);border-radius:2px;
+  cursor:pointer;color:var(--t2);font-size:14px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);transition:all .15s;user-select:none;}
+.zb:hover{border-color:var(--b2);color:var(--t1);}
+#zlv{font-family:var(--mono);font-size:8px;color:var(--t3);text-align:center;padding:3px 0;letter-spacing:.06em;}
+/* LEGEND */
+#legend{position:absolute;bottom:18px;left:18px;z-index:20;
+  background:rgba(10,10,10,0.96);border:1px solid var(--b1);border-radius:3px;padding:12px 14px;}
+.lt{font-family:var(--mono);font-size:7.5px;font-weight:500;letter-spacing:.15em;
+  color:var(--t3);text-transform:uppercase;margin-bottom:8px;}
+.lr{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-family:var(--mono);font-size:8.5px;color:var(--t2);}
+.ld{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.lsep{height:1px;background:var(--b1);margin:8px 0;}
+/* STATS */
+#sts{position:absolute;bottom:18px;right:18px;z-index:20;display:flex;gap:1px;}
+.sc{background:rgba(10,10,10,0.96);border:1px solid var(--b1);padding:9px 14px;text-align:center;min-width:68px;}
+.sc:first-child{border-radius:3px 0 0 3px;}.sc:last-child{border-radius:0 3px 3px 0;}
+.sn{font-size:20px;font-weight:300;color:var(--t1);line-height:1;}
+.sl{font-size:7.5px;color:var(--t3);font-family:var(--mono);letter-spacing:.1em;margin-top:4px;text-transform:uppercase;}
+/* CLOCK / VER */
+#clk{position:absolute;top:58px;left:18px;z-index:20;font-family:var(--mono);font-size:8.5px;color:var(--t3);letter-spacing:.08em;}
+#ver{position:absolute;top:58px;right:18px;z-index:20;font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:.06em;text-align:right;}
+/* HINT */
+#hint{position:absolute;top:78px;left:50%;transform:translateX(-50%);z-index:20;
+  font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:.08em;text-align:center;
+  pointer-events:none;white-space:nowrap;animation:fout 4s ease 3s forwards;}
+@keyframes fout{to{opacity:0;}}
+/* RIGHT PANEL */
+#pn{width:0;overflow:hidden;transition:width .28s cubic-bezier(.4,0,.2,1);
+  background:rgba(0,0,0,0.99);border-left:1px solid var(--b1);
+  display:flex;flex-direction:column;position:relative;z-index:30;flex-shrink:0;}
+#pn.open{width:305px;}
+#ps{padding:18px 16px;overflow-y:auto;height:100%;scrollbar-width:thin;scrollbar-color:#1a1a1a transparent;}
+.pcl{position:absolute;top:12px;right:12px;background:transparent;border:1px solid var(--b1);
+  color:var(--t3);width:20px;height:20px;border-radius:2px;cursor:pointer;font-size:11px;
+  display:flex;align-items:center;justify-content:center;transition:all .12s;font-family:var(--mono);}
+.pcl:hover{border-color:var(--b2);color:var(--t1);}
+.pbg{display:inline-block;padding:2px 8px;border-radius:2px;font-size:7.5px;font-family:var(--mono);
+  letter-spacing:.1em;margin-bottom:9px;text-transform:uppercase;border:1px solid;}
+.pnm{font-size:16px;font-weight:300;line-height:1.25;margin-bottom:3px;color:var(--t1);}
+.prl{font-size:9px;color:var(--t3);margin-bottom:16px;font-family:var(--mono);line-height:1.5;}
+.psc{margin-bottom:13px;}
+.pst{font-size:7.5px;font-weight:500;letter-spacing:.15em;color:var(--t3);text-transform:uppercase;
+  font-family:var(--mono);margin-bottom:6px;display:flex;align-items:center;gap:7px;}
+.pst::after{content:'';flex:1;height:1px;background:var(--b1);}
+.prw{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;}
+.pk{font-size:9px;color:var(--t3);font-family:var(--mono);}
+.pv{font-size:9px;color:var(--t2);font-family:var(--mono);text-align:right;max-width:158px;word-break:break-word;line-height:1.4;}
+.sb{height:2px;background:var(--s3);margin-top:4px;overflow:hidden;border-radius:1px;}
+.sf{height:100%;transition:width .5s;border-radius:1px;}
+.ptx{font-size:9px;color:var(--t2);font-family:var(--mono);line-height:1.65;}
+.pgs{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;}
+.gt{padding:2px 7px;border-radius:2px;font-size:8.5px;background:var(--gold-a);
+  color:var(--gold);font-family:var(--mono);border:1px solid rgba(201,168,76,.18);letter-spacing:.05em;}
+.ab{width:100%;padding:8px;border-radius:2px;border:1px solid var(--b2);background:transparent;
+  color:var(--t2);font-size:9px;cursor:pointer;font-family:var(--mono);text-transform:uppercase;
+  letter-spacing:.1em;transition:all .15s;margin-top:4px;}
+.ab:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-a);}
+.cw{padding:8px 10px;border-radius:2px;margin-bottom:9px;background:rgba(176,48,48,.08);
+  border:1px solid rgba(176,48,48,.22);font-size:8.5px;color:#e07070;font-family:var(--mono);line-height:1.5;}
+.hw{padding:8px 10px;border-radius:2px;margin-bottom:9px;background:rgba(42,138,80,.07);
+  border:1px solid rgba(42,138,80,.2);font-size:8.5px;color:#5cc47a;font-family:var(--mono);}
+.cc{padding:7px 9px;border-radius:2px;background:var(--s1);border:1px solid var(--b1);margin-bottom:4px;}
+.ccn{font-size:9px;font-weight:500;font-family:var(--mono);}
+.ccw{font-size:8.5px;color:var(--t3);margin-top:2px;line-height:1.4;font-family:var(--mono);}
+/* GOAL PANEL */
+#gp{position:absolute;top:46px;right:0;z-index:25;width:240px;
+  background:rgba(0,0,0,0.99);border-left:1px solid var(--b1);
+  height:calc(100vh - 46px);display:flex;flex-direction:column;transition:right .28s cubic-bezier(.4,0,.2,1);}
+#gp.sh{right:305px;}
+.gph{padding:11px 13px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.gpt{font-size:7.5px;font-weight:500;letter-spacing:.18em;color:var(--t3);font-family:var(--mono);text-transform:uppercase;}
+.gpb{background:none;border:none;color:var(--t3);cursor:pointer;font-size:13px;line-height:1;font-family:var(--mono);transition:color .12s;}
+.gpb:hover{color:var(--t1);}
+#gl{overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:#1a1a1a transparent;}
+.gi{padding:9px 13px;border-bottom:1px solid var(--b1);cursor:pointer;transition:background .1s;}
+.gi:hover{background:var(--s1);}
+.gi.sl{background:var(--s1);border-left:2px solid var(--gold);padding-left:11px;}
+.gc{font-size:7.5px;font-family:var(--mono);color:var(--t3);letter-spacing:.1em;text-transform:uppercase;}
+.gt2{font-size:9px;color:var(--t2);margin-top:2px;font-family:var(--mono);line-height:1.4;}
+.gchs{display:flex;gap:3px;flex-wrap:wrap;margin-top:5px;}
+.gch{padding:2px 6px;border-radius:2px;font-size:7.5px;font-family:var(--mono);letter-spacing:.03em;}
+/* ALERTS PANEL — LEFT SIDE */
+#alerts-panel{
+  position:absolute;top:46px;left:0;z-index:25;width:230px;
+  background:rgba(0,0,0,0.99);border-right:1px solid var(--b1);
+  height:calc(100vh - 46px);display:flex;flex-direction:column;
+  transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+}
+#alerts-panel.open{transform:translateX(0);}
+.aph{padding:11px 13px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.apt{font-size:7.5px;font-weight:500;letter-spacing:.18em;color:var(--t3);font-family:var(--mono);text-transform:uppercase;}
+.ap-close{background:none;border:none;color:var(--t3);cursor:pointer;font-size:13px;font-family:var(--mono);}
+.ap-close:hover{color:var(--t1);}
+#alerts-scroll{overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:#1a1a1a transparent;}
+.alert-section-hdr{padding:8px 13px 4px;font-family:var(--mono);font-size:7.5px;letter-spacing:.14em;
+  color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1);}
+.alert-item{padding:9px 13px;border-bottom:1px solid var(--b1);cursor:pointer;transition:background .1s;}
+.alert-item:hover{background:var(--s1);}
+.alert-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:2px;}
+.alert-row{display:flex;gap:8px;align-items:flex-start;}
+.alert-content{}
+.alert-title{font-size:9px;font-family:var(--mono);color:var(--t1);line-height:1.35;margin-bottom:2px;}
+.alert-sub{font-size:8px;font-family:var(--mono);color:var(--t3);line-height:1.4;}
+.alert-tag{display:inline-block;padding:1px 5px;border-radius:2px;font-size:7px;font-family:var(--mono);
+  letter-spacing:.06em;text-transform:uppercase;margin-top:3px;}
+/* ALERTS TOGGLE BUTTON */
+#alerts-toggle{
+  position:absolute;top:58px;left:18px;z-index:26;
+  padding:4px 10px;border-radius:2px;background:var(--s1);border:1px solid var(--b1);
+  color:var(--t2);font-size:9px;cursor:pointer;font-family:var(--mono);
+  text-transform:uppercase;letter-spacing:.1em;transition:all .15s;
+  display:flex;align-items:center;gap:6px;
+}
+#alerts-toggle:hover{border-color:var(--b2);color:var(--t1);}
+#alerts-toggle .badge{
+  background:var(--red);color:#fff;border-radius:10px;padding:1px 5px;
+  font-size:7px;font-family:var(--mono);letter-spacing:.04em;
+}
+/* MODAL */
+#mo{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:100;display:none;align-items:center;justify-content:center;}
+#mo.show{display:flex;}
+#mb{background:#070707;border:1px solid var(--b2);border-radius:3px;padding:22px;
+  width:420px;max-height:88vh;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#1a1a1a transparent;}
+.mt{font-size:15px;font-weight:300;margin-bottom:3px;color:var(--t1);}
+.ms2{font-size:8.5px;color:var(--t3);font-family:var(--mono);margin-bottom:18px;letter-spacing:.06em;}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.fi{display:flex;flex-direction:column;}
+.fi label{font-size:7.5px;color:var(--t3);letter-spacing:.14em;font-family:var(--mono);text-transform:uppercase;margin-bottom:3px;}
+.fi input,.fi select,.fi textarea{background:var(--s2);border:1px solid var(--b1);border-radius:2px;
+  padding:7px 9px;color:var(--t1);font-size:10px;font-family:var(--mono);outline:none;resize:vertical;transition:border-color .12s;}
+.fi input:focus,.fi select:focus,.fi textarea:focus{border-color:var(--b2);}
+.fi select option{background:#0a0a0a;color:var(--t1);}
+.ma{display:flex;gap:7px;margin-top:14px;}
+.mbp{flex:1;padding:8px;border-radius:2px;background:transparent;border:1px solid var(--gold);
+  color:var(--gold);font-size:9px;cursor:pointer;font-family:var(--mono);
+  text-transform:uppercase;letter-spacing:.12em;transition:all .15s;}
+.mbp:hover{background:var(--gold-a);}
+.mbs{padding:8px 13px;border-radius:2px;border:1px solid var(--b1);background:transparent;
+  color:var(--t3);font-size:9px;cursor:pointer;font-family:var(--mono);transition:all .12s;}
+.mbs:hover{color:var(--t2);border-color:var(--b2);}
+/* TOOLTIP */
+#tip{position:absolute;z-index:50;pointer-events:none;background:#060606;border:1px solid var(--b2);
+  border-radius:2px;padding:8px 11px;font-size:9px;font-family:var(--mono);color:var(--t2);
+  opacity:0;transition:opacity .1s;max-width:200px;white-space:normal;line-height:1.55;}
+</style>
+</head>
+<body>
+<div id="loader">
+  <div class="lo-logo">AK / Network Intelligence</div>
+  <div class="lo-bar"><div class="lo-fill"></div></div>
+  <div class="lo-sub" id="lo-sub">Loading...</div>
+</div>
+
+<div id="app">
+  <div id="cv">
+    <canvas id="bgc"></canvas>
+    <canvas id="nc"></canvas>
+
+    <div id="bar">
+      <div class="logo">AK <b>/</b> Network</div>
+      <div id="pills">
+        <button class="pill all on" data-f="all">All</button>
+        <button class="pill us" data-f="us">US Clinical</button>
+        <button class="pill am" data-f="am">AMPATH</button>
+        <button class="pill kb" data-f="kb">Kenya Biz</button>
+        <button class="pill iv" data-f="iv">Investors</button>
+        <button class="pill co" data-f="co">Personal</button>
+        <button class="pill po" data-f="po">Politics</button>
+        <button class="pill ed" data-f="ed">Education</button>
+        <button class="pill eu" data-f="eu">Europe</button>
+      </div>
+      <div id="tr">
+        <div class="sw"><span class="si">⌕</span><input id="srch" type="text" placeholder="search..."></div>
+        <button class="ibtn" id="sync-btn" onclick="reloadData()">↻ Sync</button>
+        <button class="ibtn" onclick="resetView()">⊡ Reset</button>
+        <button class="addb" onclick="showModal()">+ Add</button>
+      </div>
+    </div>
+
+    <div id="clk"></div>
+    <div id="ver"></div>
+    <div id="hint">Scroll to zoom · Drag to pan · Click node to inspect · Click edge to see link</div>
+
+    <!-- Alerts toggle -->
+    <button id="alerts-toggle" onclick="toggleAlerts()">
+      ◈ Alerts <span class="badge" id="alert-count">0</span>
+    </button>
+
+    <div id="zc">
+      <div class="zb" onclick="zoomBy(1.25)">+</div>
+      <div id="zlv">100%</div>
+      <div class="zb" onclick="zoomBy(0.8)">−</div>
+    </div>
+
+    <div id="legend">
+      <div class="lt">Categories</div>
+      <div class="lr"><div class="ld" style="background:#4a90c8"></div>US Clinical</div>
+      <div class="lr"><div class="ld" style="background:#c05050"></div>AMPATH</div>
+      <div class="lr"><div class="ld" style="background:#3a9055"></div>Kenya Business</div>
+      <div class="lr"><div class="ld" style="background:#b08030"></div>Investors</div>
+      <div class="lr"><div class="ld" style="background:#7850b0"></div>Personal</div>
+      <div class="lr"><div class="ld" style="background:#2898b0"></div>Politics</div>
+      <div class="lr"><div class="ld" style="background:#b07030"></div>Education</div>
+      <div class="lr"><div class="ld" style="background:#6040b0"></div>Europe</div>
+      <div class="lsep"></div>
+      <div class="lt">Edge strength</div>
+      <div class="lr"><div style="height:2px;width:22px;background:rgba(201,168,76,0.8);border-radius:1px;"></div>2+ shared goals</div>
+      <div class="lr"><div style="height:1px;width:22px;background:rgba(255,255,255,0.25);border-radius:1px;"></div>1 shared goal</div>
+      <div class="lr"><div style="height:1px;width:22px;background:rgba(255,255,255,0.08);border-radius:1px;stroke-dasharray:3 4"></div>Intro path</div>
+      <div class="lsep"></div>
+      <div class="lt" style="color:#a03030;">Dashed ring = cold &gt;30d</div>
+      <div class="lt" style="color:var(--gold);margin-top:4px;">Gold ring = goal match</div>
+    </div>
+
+    <div id="sts">
+      <div class="sc"><div class="sn" id="stot">—</div><div class="sl">Contacts</div></div>
+      <div class="sc"><div class="sn" id="scold" style="color:#c05050">—</div><div class="sl">Cold</div></div>
+      <div class="sc"><div class="sn" id="sgls">15</div><div class="sl">Goals</div></div>
+      <div class="sc"><div class="sn" id="sint">—</div><div class="sl">Intros</div></div>
+    </div>
+
+    <div id="tip"></div>
+  </div>
+
+  <!-- ALERTS PANEL (slides in from left) -->
+  <div id="alerts-panel">
+    <div class="aph">
+      <span class="apt">◈ Alerts &amp; Events</span>
+      <button class="ap-close" onclick="toggleAlerts()">✕</button>
+    </div>
+    <div id="alerts-scroll"></div>
+  </div>
+
+  <!-- GOAL PANEL (right side) -->
+  <div id="gp">
+    <div class="gph">
+      <span class="gpt">Goal Matcher</span>
+      <button class="gpb" id="gpb" onclick="toggleGP()">−</button>
+    </div>
+    <div id="gl"></div>
+  </div>
+
+  <!-- CONTACT DETAIL PANEL -->
+  <div id="pn">
+    <div id="ps">
+      <button class="pcl" onclick="closePanel()">✕</button>
+      <div id="pc"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD CONTACT MODAL -->
+<div id="mo">
+  <div id="mb">
+    <div class="mt">Add Contact</div>
+    <div class="ms2">// appears instantly · commit to contacts.json to make permanent</div>
+    <div class="fg">
+      <div class="fi" style="grid-column:1/-1"><label>Full Name *</label><input id="fn" type="text" placeholder="Dr. Jane Smith"></div>
+      <div class="fi" style="grid-column:1/-1"><label>Role / Organisation</label><input id="fr" type="text" placeholder="Kaiser Permanente — Attending Physician"></div>
+      <div class="fi"><label>Category *</label>
+        <select id="fc">
+          <option value="us">US Clinical</option><option value="am">AMPATH Fireside</option>
+          <option value="kb">Kenya Business</option><option value="iv">Investor / Funder</option>
+          <option value="co">Personal / Core</option><option value="po">Politics</option>
+          <option value="ed">Education</option><option value="eu">Europe</option>
+        </select>
+      </div>
+      <div class="fi"><label>Location</label><input id="fl" type="text" placeholder="Los Angeles, CA"></div>
+      <div class="fi" style="grid-column:1/-1"><label>How We Met</label><input id="fm" type="text" placeholder="AMPATH Fireside, March 2026"></div>
+      <div class="fi" style="grid-column:1/-1"><label>Why They Matter</label><textarea id="fw" rows="2" placeholder="LOR for ECFMG. Cardiology network."></textarea></div>
+      <div class="fi" style="grid-column:1/-1"><label>What I Know (personal)</label><textarea id="fk" rows="2" placeholder="Research focus, personality..."></textarea></div>
+      <div class="fi"><label>Last Contact</label><input id="fd" type="date"></div>
+      <div class="fi"><label>Strength (1–10)</label><input id="fs" type="number" min="1" max="10" value="5"></div>
+      <div class="fi" style="grid-column:1/-1"><label>Goals Linked (e.g. C3,C7)</label><input id="fg" type="text" placeholder="C3, C7, C8"></div>
+      <div class="fi" style="grid-column:1/-1"><label>Knows Who? (intro paths)</label><input id="fkw" type="text" placeholder="Cardiology PDs, UCSF faculty..."></div>
+      <div class="fi" style="grid-column:1/-1"><label>Favours / Value Exchange</label><textarea id="ff" rows="2" placeholder="I sent them X. They gave me Y."></textarea></div>
+      <div class="fi" style="grid-column:1/-1"><label>Next Action</label><input id="fna" type="text" placeholder="Email by April 1..."></div>
+    </div>
+    <div class="ma">
+      <button class="mbs" onclick="hideModal()">Cancel</button>
+      <button class="mbp" onclick="addContact()">Add to Network</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── PALETTE ────────────────────────────────────────────────────────────────────
+const CC={us:'#4a90c8',am:'#c05050',kb:'#3a9055',iv:'#b08030',co:'#7850b0',po:'#2898b0',ed:'#b07030',eu:'#6040b0'};
+const CL={us:'US Clinical',am:'AMPATH',kb:'Kenya Biz',iv:'Investor',co:'Core',po:'Politics',ed:'Education',eu:'Europe'};
+
+const GOALS=[
+  {code:'C1',text:'Pass anaesthesia exam — April 10',domain:'Clinical'},
+  {code:'C2',text:'Sign 2 SHA pilot clinics',domain:'Business'},
+  {code:'C3',text:'Submit ECFMG registration',domain:'Medical'},
+  {code:'C4',text:'Formalise supply partnership',domain:'Business'},
+  {code:'C5',text:'Submit 1 grant application',domain:'Business'},
+  {code:'C6',text:'UzimaClinic MVP — 1 paying clinic',domain:'Business'},
+  {code:'C7',text:'USMLE Step 1 resources + plan',domain:'Medical'},
+  {code:'C8',text:'Sandrah B1/B2 visa submitted',domain:'Relationship'},
+  {code:'C9',text:'Reach KES 150k savings',domain:'Finance'},
+  {code:'C10',text:'AMPATH Fireside — 8 sessions',domain:'Network'},
+  {code:'C11',text:'24+ US contacts from AMPATH',domain:'Network'},
+  {code:'C12',text:'Uzimatek Delaware C-Corp',domain:'Business'},
+  {code:'C13',text:'KP observership planned 2028',domain:'Medical'},
+  {code:'C14',text:'Strathmore MBA — first contact',domain:'Education'},
+  {code:'C15',text:'Monthly investor updates',domain:'Business'},
+];
+
+// ── EVENTS & ALERTS DATA ───────────────────────────────────────────────────────
+const ALERTS_DATA = {
+  coldContacts: [], // computed dynamically
+  events: [
+    // HEALTH EVENTS
+    {type:'event', sector:'health', urgency:'high',
+     title:'Africa Health Collaborative Summit',
+     sub:'Nairobi · April 14–16 2026 · Your runner-up status = priority access',
+     tag:'Attend', tagColor:'rgba(42,138,80,.2)', tagFg:'#5cc47a',
+     action:'Email AHC contact this week for early registration + speaking slot inquiry.'},
+    {type:'event', sector:'health', urgency:'high',
+     title:'AMPATH Annual Research Day — MTRH',
+     sub:'MTRH Eldoret · April 2026 (TBC) · US attendings present research',
+     tag:'Submit Abstract', tagColor:'rgba(201,168,76,.18)', tagFg:'var(--gold)',
+     action:'Submit a Uzimatek abstract — SHA claims data + AI RCM. Deadline usually 2 weeks prior.'},
+    {type:'event', sector:'health', urgency:'medium',
+     title:'HealthIT East Africa Forum',
+     sub:'Nairobi · May 2026 · Health informatics + digital health',
+     tag:'Speak / Exhibit', tagColor:'rgba(74,144,200,.18)', tagFg:'#6ab4f0',
+     action:'Apply for a startup demo slot for Uzimatek. Perfect pitch environment.'},
+    {type:'event', sector:'health', urgency:'medium',
+     title:'ACC Annual Scientific Sessions',
+     sub:'Chicago, USA · March 29–31 2026 · American College of Cardiology',
+     tag:'Virtual Access', tagColor:'rgba(74,144,200,.18)', tagFg:'#6ab4f0',
+     action:'Register for virtual stream. Email Dr. Leong + Dr. Jennifer Nguyen — ask if they are presenting.'},
+    {type:'event', sector:'health', urgency:'medium',
+     title:'ECTMIH — European Congress Tropical Medicine',
+     sub:'Basel, Switzerland · Oct 2026 · Global health + Africa health systems',
+     tag:'Submit Abstract', tagColor:'rgba(148,112,216,.18)', tagFg:'#9470d8',
+     action:'Submit Uzimatek data abstract on SHA claims AI. Builds EU network + publication record for O-1 visa.'},
+    {type:'event', sector:'health', urgency:'low',
+     title:'Kenya Medical Association Annual Conference',
+     sub:'Nairobi · June 2026 · National physician network',
+     tag:'Attend', tagColor:'rgba(42,138,80,.18)', tagFg:'#5cc47a',
+     action:'Register. Network with MOH contacts. Political landscape intel for Uzimatek.'},
+    // TECH / STARTUP EVENTS
+    {type:'event', sector:'tech', urgency:'high',
+     title:'Mastercard Foundation Young Africa Works',
+     sub:'Application cycle · Deadline Q2 2026 · Your runner-up = strong reapplication',
+     tag:'Apply Now', tagColor:'rgba(176,48,48,.18)', tagFg:'#e07070',
+     action:'Email MCF contact: request feedback call + confirm next cycle opening date.'},
+    {type:'event', sector:'tech', urgency:'high',
+     title:'GSMA Innovation Fund — Mobile Health',
+     sub:'Rolling applications · East Africa focus · Up to USD 250k',
+     tag:'Apply', tagColor:'rgba(176,48,48,.18)', tagFg:'#e07070',
+     action:'Check current open cohort at gsma.com/mobilefordevelopment. Submit Uzimatek by Q2 2026.'},
+    {type:'event', sector:'tech', urgency:'medium',
+     title:'Villgro Africa Incubator',
+     sub:'Nairobi · Q2 2026 applications · Health-tech focus · Equity + support',
+     tag:'Apply', tagColor:'rgba(201,168,76,.18)', tagFg:'var(--gold)',
+     action:'Apply with Uzimatek. Their portfolio = East Africa health-tech credibility signal to investors.'},
+    {type:'event', sector:'tech', urgency:'medium',
+     title:'YC Africa Cohort (W2027)',
+     sub:'Applications open Sept 2026 · Remote-friendly · USD 500k standard deal',
+     tag:'Prepare', tagColor:'rgba(74,144,200,.18)', tagFg:'#6ab4f0',
+     action:'Start building YC application now. Revenue traction by Sept = key. Delaware C-Corp must be done first.'},
+    {type:'event', sector:'tech', urgency:'medium',
+     title:'Africa Tech Summit — Nairobi',
+     sub:'Nairobi · Feb 2027 · Largest Africa tech gathering',
+     tag:'Speak', tagColor:'rgba(42,138,80,.18)', tagFg:'#5cc47a',
+     action:'Submit speaker application Q3 2026. Uzimatek as a case study in AI health-tech in East Africa.'},
+    {type:'event', sector:'tech', urgency:'low',
+     title:'Startupbootcamp Africa — Health',
+     sub:'Applications open · 3-month accelerator · Nairobi/Cape Town',
+     tag:'Monitor', tagColor:'rgba(255,255,255,.08)', tagFg:'#666',
+     action:'Monitor for Q3 2026 cohort announcement. Apply if Uzimatek has 2+ paying clinics by then.'},
+  ],
+  networkAlerts: [
+    {title:'KP Contacts — 5 months cold',sub:'Dr. Leong, Dr. Howard, Dr. Jennifer Nguyen + 9 others. Last contact: Oct 2025.',urgency:'critical',action:'Email Dr. Leong first — SCRUBBED INTO HIS PCI. April 1 deadline.'},
+    {title:'Africa Health Collaborative — 36 days cold',sub:'Last contact Feb 15. Pre-Seed investor intro ask outstanding.',urgency:'high',action:'Email THIS WEEK with Q1 Uzimatek update.'},
+    {title:'Mastercard Foundation — 23 days cold',sub:'Last contact Feb 28. 6-month update email due.',urgency:'medium',action:'April email: traction update. Show clinics signed.'},
+    {title:'AMPATH — Wednesday Fireside TOMORROW',sub:'Every Wednesday 12:00. Non-negotiable attendance.',urgency:'high',action:'Arrive 10 mins early. Target 1 new US contact minimum.'},
+    {title:'Newton Osiemo — Wilken Group',sub:'No contact established. High-value political economy contact.',urgency:'medium',action:'Identify warm introduction path. AHC or MCF may have connection.'},
+  ]
+};
+
+// ── EMBEDDED CONTACTS ─────────────────────────────────────────────────────────
+let CONTACTS=[];
+const EMBEDDED_CONTACTS=[
+  {id:1,name:"KP Physician",role:"Kaiser Permanente — Attending",cat:"us",loc:"Los Angeles, CA",met:"2025 KP Rotation",why:"LOR for ECFMG/ERAS. Observership host. Cardiology network. Most critical US contact.",know:"Spent extra time on IMG pathway. Research interest in outcomes data.",lastContact:"2025-12-01",score:7,goals:["C3","C7","C8","C13"],knows:"Cardiology PDs, UCSF contacts",favours:"I sent patient summary. They gave IMG advice — I owe a progress update.",nextAction:"EMAIL BY APRIL 1. Reference rotation moment. Ask re 2028 observership."},
+  {id:2,name:"KP Faculty / PD",role:"Kaiser Permanente — Faculty / PD",cat:"us",loc:"Los Angeles, CA",met:"2025 KP Rotation — formal intro",why:"USMLE guidance. ERAS support. Research collaboration.",know:"Research focus on digital health outcomes.",lastContact:"2025-11-15",score:5,goals:["C7","C8","C13"],knows:"IM Program Directors, Cardiology fellowship directors",favours:"They explained US residency system. I owe a meaningful update.",nextAction:"Email April 15. Uzimatek digital health angle + Zoom ask."},
+  {id:3,name:"KP Management",role:"Kaiser Permanente — Operations",cat:"us",loc:"Los Angeles, CA",met:"2025 KP Management tour",why:"Uzimatek US investor intro. Healthcare system insight. Pilot partner.",know:"Interested in Africa health innovation.",lastContact:"2026-01-10",score:5,goals:["C5","C6","C12"],knows:"AVIA Health, digital health VCs, Kaiser innovation team",favours:"Nothing yet. Offer: Uzimatek pitch.",nextAction:"LinkedIn message — Uzimatek one-pager."},
+  {id:4,name:"Bradley Mogere",role:"Medical Supply — Business Partner",cat:"kb",loc:"Kenya",met:"Existing business — co-founder supply venture",why:"Supply chain. Operations partner. Revenue. Core trust anchor.",know:"Long-standing. Know his style, motivations, reliability.",lastContact:"2026-03-20",score:8,goals:["C2","C4","C9"],knows:"Hospital procurement, medical wholesalers Nairobi",favours:"Equal partners. Owe: written agreement by May 2026.",nextAction:"Monthly call this week. Consignment + agreement."},
+  {id:5,name:"Melchizedek Anyonje",role:"Medical Supply — Business Partner",cat:"kb",loc:"Kenya",met:"Existing business — co-partner supply venture",why:"Supply chain partner. Logistics-focused.",know:"Active and reliable. Works well with Bradley.",lastContact:"2026-03-18",score:7,goals:["C2","C4","C9"],knows:"Medical distributors, hospital contacts",favours:"Equal partner. Owe: formalised written agreement.",nextAction:"3-way call with Bradley. Written agreement — finalise."},
+  {id:6,name:"Sandrah",role:"5th Year MBChB — Life Partner",cat:"co",loc:"Eldoret, Kenya",met:"Life",why:"Life partner. Co-emigration. Fellow physician. B1/B2 applicant.",know:"Everything. Petname: daddy shark. Graduating 2027. Diplomatic passport.",lastContact:"2026-03-23",score:10,goals:["C8"],knows:"MTRH clinical network, family diplomatic connections",favours:"Nails every 2 weeks. Monthly surprise. Weekly date night. Always.",nextAction:"April getaway booked NOW. B1/B2 docs this weekend."},
+  {id:7,name:"AMPATH US Attending",role:"US University — Attending — MTRH",cat:"am",loc:"MTRH Eldoret / US",met:"AMPATH Fireside Wednesday",why:"LOR potential. Fellowship intel. Research collaboration.",know:"Type their research focus and personality after each Fireside.",lastContact:"2026-03-18",score:4,goals:["C3","C7","C11"],knows:"PDs at home institution, other AMPATH faculty",favours:"Shared MTRH SHA claims insight.",nextAction:"Follow-up email by THURSDAY. Reference Fireside topic. Propose Zoom."},
+  {id:8,name:"AMPATH US Resident",role:"US Residency — Resident — MTRH",cat:"am",loc:"MTRH Eldoret / US",met:"AMPATH Fireside Wednesday",why:"USMLE peer intel. IMG match experience.",know:"Matched from foreign medical school.",lastContact:"2026-03-18",score:4,goals:["C7","C11"],knows:"Co-residents, program coordinators",favours:"Offer: Kenya clinical insight. Anki decks.",nextAction:"WhatsApp monthly. What would you do differently in USMLE?"},
+  {id:9,name:"Africa Health Collaborative",role:"Health Innovation — Nairobi / US",cat:"iv",loc:"Nairobi / US",met:"Mastercard Foundation pitch — runner-up",why:"Investor intros. Grant pipeline. Mastercard adjacent.",know:"Warm reception post-pitch.",lastContact:"2026-02-15",score:5,goals:["C5","C6","C15"],knows:"Novastar Ventures, DRK Foundation, Mastercard Foundation",favours:"Pitched at their event. Offer: quarterly updates.",nextAction:"EMAIL THIS WEEK. Q1 update. Ask for 1 investor intro."},
+  {id:10,name:"Mastercard Foundation",role:"Foundation — Programme Officer",cat:"iv",loc:"Nairobi / Toronto",met:"Healthcare Innovation Pitch — runner-up 2026",why:"Direct grant pipeline. YouthAfrica network.",know:"Runner-up — they believe in the concept.",lastContact:"2026-02-28",score:6,goals:["C5","C15"],knows:"Mastercard grantees, foundation investment arm",favours:"Pitched at event. Offer: impact updates.",nextAction:"April email: 6-month update. Show clinic traction."},
+  {id:11,name:"MTRH Consultant",role:"Consultant Physician — MTRH",cat:"am",loc:"Eldoret, Kenya",met:"Clinical rotation at MTRH",why:"MSPE / Dean's letter for ERAS. Uzimatek SHA champion.",know:"Type specialty, personality from rotations.",lastContact:"2026-03-10",score:5,goals:["C2","C3","C10"],knows:"Hospital admin, MTRH procurement, MU faculty",favours:"Offer: Uzimatek solves SHA claims headaches.",nextAction:"Visit next rotation. Position as Uzimatek founder."},
+  {id:12,name:"Strathmore MBA Dir.",role:"Strathmore Business School — MBA",cat:"ed",loc:"Nairobi, Kenya",met:"Not yet contacted — TARGET Q4 2026",why:"MBA application 2028. Africa business network.",know:"Research programme specifics first.",lastContact:"",score:2,goals:["C14"],knows:"Nairobi private sector, MBA alumni",favours:"Offer: Uzimatek as live MBA case study.",nextAction:"Email Q4 2026. Campus visit Q1 2027."},
+  {id:13,name:"MOH Policy Lead",role:"Ministry of Health Kenya — Policy",cat:"po",loc:"Nairobi, Kenya",met:"Target via AHC introduction",why:"Healthcare policy. SHA navigation. Government access.",know:"Add name when you have a contact.",lastContact:"",score:1,goals:["C2","C5"],knows:"Ministry of Health, SHA leadership, hospital CEOs",favours:"Nothing yet. Via AHC introduction.",nextAction:"Request warm intro via AHC."},
+  {id:14,name:"EU Health Tech Investor",role:"Partech Africa / Leapfrog — Europe",cat:"eu",loc:"London / Amsterdam",met:"Target — cold outreach Q2 2026",why:"Pre-seed for Uzimatek. European diaspora capital.",know:"Type investor thesis when researched.",lastContact:"",score:1,goals:["C5","C15"],knows:"Other EU Africa investors, global health funders",favours:"Nothing yet. Offer: East Africa market thesis.",nextAction:"LinkedIn: runner-up MCF + Uzimatek one-pager."},
+  {id:15,name:"MU Faculty",role:"Moi University — Clinical Faculty",cat:"ed",loc:"Eldoret, Kenya",met:"Medical school clinical faculty",why:"Dean's letter / MSPE for ERAS.",know:"Type specialty and connection points.",lastContact:"2026-02-20",score:5,goals:["C3","C14"],knows:"MU Faculty network, MTRH administration",favours:"Offer: Uzimatek digital health research angle.",nextAction:"Office visit next rotation. Ask intelligent questions."},
+  // Newton Osiemo
+  {id:16,name:"Newton Osiemo",role:"CEO — Wilken Group Kenya",cat:"po",loc:"Nairobi, Kenya",met:"Target — identified via political economy research",why:"CEO of Wilken Group — major procurement, supply chain, and government contracting business in Kenya. Connected to government procurement networks, MOH supply chains, and private sector infrastructure. Strategic value for Uzimatek SHA/government contract navigation and medical supply chain intelligence.",know:"Runs Wilken Group — involved in government procurement and supply. Connected to political and business elite in Kenya. Thorough due diligence required before approach.",lastContact:"",score:1,goals:["C2","C5","C6"],knows:"Government procurement officers, MOH supply chain contacts, Kenya private sector network, political economy figures",favours:"Nothing yet. Need warm intro first — do not cold approach.",nextAction:"Identify warm introduction path via AHC, MOH Policy Lead, or medical supply network (Bradley/Melchi). Build context before any contact."},
+];
+
+// ── SMART LINK RULES ──────────────────────────────────────────────────────────
+// Connections are ONLY drawn when meaningful:
+// 1. Two or more shared goal codes (strong gold link)
+// 2. Exactly one shared goal code (thin white link) — only if relationship score avg >= 4
+// 3. Explicit intro path: contact A's "knows" field mentions something matching contact B's name/role
+// Same category alone does NOT create a link — prevents the hairball
+function getLinks(){
+  const L=[];
+  const C=CONTACTS;
+  C.forEach((a,ai)=>C.forEach((b,bi)=>{
+    if(bi<=ai)return;
+    const gs_a=a.goals||[], gs_b=b.goals||[];
+    const shared=gs_a.filter(g=>gs_b.includes(g)).length;
+    const avgScore=((a.score||1)+(b.score||1))/2;
+
+    // Rule 1: 2+ shared goals → strong gold link
+    if(shared>=2){
+      L.push({s:a.id,t:b.id,w:shared,type:'goal-strong'});
+      return;
+    }
+    // Rule 2: 1 shared goal + both have decent scores → thin link
+    if(shared===1&&avgScore>=4){
+      L.push({s:a.id,t:b.id,w:1,type:'goal-weak'});
+      return;
+    }
+    // Rule 3: explicit intro path (A knows B by name fragment)
+    const aKnows=(a.knows||'').toLowerCase();
+    const bKnows=(b.knows||'').toLowerCase();
+    const bNameFrag=b.name.split(' ').filter(p=>p.length>3)[0]?.toLowerCase()||'';
+    const aNameFrag=a.name.split(' ').filter(p=>p.length>3)[0]?.toLowerCase()||'';
+    if(bNameFrag&&aKnows.includes(bNameFrag)){
+      L.push({s:a.id,t:b.id,w:0,type:'intro'});
+      return;
+    }
+    if(aNameFrag&&bKnows.includes(aNameFrag)){
+      L.push({s:a.id,t:b.id,w:0,type:'intro'});
+    }
+  }));
+  return L;
+}
+
+// ── ALERTS PANEL ─────────────────────────────────────────────────────────────
+let alertsOpen=false;
+
+function buildAlertsPanel(){
+  const scroll=document.getElementById('alerts-scroll');
+  scroll.innerHTML='';
+  let totalAlerts=0;
+
+  // Network alerts
+  const nethdr=document.createElement('div');
+  nethdr.className='alert-section-hdr';nethdr.textContent='Network — Action Required';
+  scroll.appendChild(nethdr);
+
+  // Dynamic cold contacts
+  const cold=CONTACTS.filter(c=>ds(c.lastContact)>30).sort((a,b)=>ds(b.lastContact)-ds(a.lastContact));
+  cold.slice(0,3).forEach(c=>{
+    totalAlerts++;
+    const age=ds(c.lastContact);
+    const el=document.createElement('div');
+    el.className='alert-item';
+    el.onclick=()=>{
+      const n=nodes.find(nd=>nd.id===c.id);
+      if(n){openPanel(n);toggleAlerts();}
+    };
+    const urg=age>60?'#e07070':age>30?'#d4a84b':'#5cc47a';
+    el.innerHTML=`<div class="alert-row">
+      <div class="alert-dot" style="background:${urg};margin-top:3px;"></div>
+      <div class="alert-content">
+        <div class="alert-title">${c.name} — ${age>900?'Never contacted':age+'d cold'}</div>
+        <div class="alert-sub">${c.role||''}</div>
+        <div class="alert-sub" style="color:var(--gold);margin-top:2px;">${c.nextAction||'Define next action'}</div>
+      </div>
+    </div>`;
+    scroll.appendChild(el);
+  });
+
+  // Static network alerts
+  ALERTS_DATA.networkAlerts.forEach(a=>{
+    if(a.urgency==='critical'||a.urgency==='high') totalAlerts++;
+    const el=document.createElement('div');
+    el.className='alert-item';
+    const uc={'critical':'#e07070','high':'#d4a84b','medium':'#5cc47a','low':'#444'}[a.urgency]||'#444';
+    el.innerHTML=`<div class="alert-row">
+      <div class="alert-dot" style="background:${uc};margin-top:3px;"></div>
+      <div class="alert-content">
+        <div class="alert-title">${a.title}</div>
+        <div class="alert-sub">${a.sub}</div>
+        <div class="alert-sub" style="color:var(--gold);margin-top:2px;">${a.action}</div>
+      </div>
+    </div>`;
+    scroll.appendChild(el);
+  });
+
+  // Health events
+  const hehdr=document.createElement('div');
+  hehdr.className='alert-section-hdr';hehdr.textContent='Health Events — Attend / Submit';
+  scroll.appendChild(hehdr);
+  ALERTS_DATA.events.filter(e=>e.sector==='health').forEach(ev=>{
+    const el=document.createElement('div');el.className='alert-item';
+    const uc={'high':'#e07070','medium':'#d4a84b','low':'#555'}[ev.urgency]||'#555';
+    el.innerHTML=`<div class="alert-row">
+      <div class="alert-dot" style="background:${uc};margin-top:3px;"></div>
+      <div class="alert-content">
+        <div class="alert-title">${ev.title}</div>
+        <div class="alert-sub">${ev.sub}</div>
+        <span class="alert-tag" style="background:${ev.tagColor};color:${ev.tagFg}">${ev.tag}</span>
+        <div class="alert-sub" style="color:var(--gold);margin-top:4px;">${ev.action}</div>
+      </div>
+    </div>`;
+    scroll.appendChild(el);
+  });
+
+  // Tech / startup events
+  const tehdr=document.createElement('div');
+  tehdr.className='alert-section-hdr';tehdr.textContent='Startup / Funding Events';
+  scroll.appendChild(tehdr);
+  ALERTS_DATA.events.filter(e=>e.sector==='tech').forEach(ev=>{
+    const el=document.createElement('div');el.className='alert-item';
+    const uc={'high':'#e07070','medium':'#d4a84b','low':'#555'}[ev.urgency]||'#555';
+    el.innerHTML=`<div class="alert-row">
+      <div class="alert-dot" style="background:${uc};margin-top:3px;"></div>
+      <div class="alert-content">
+        <div class="alert-title">${ev.title}</div>
+        <div class="alert-sub">${ev.sub}</div>
+        <span class="alert-tag" style="background:${ev.tagColor};color:${ev.tagFg}">${ev.tag}</span>
+        <div class="alert-sub" style="color:var(--gold);margin-top:4px;">${ev.action}</div>
+      </div>
+    </div>`;
+    scroll.appendChild(el);
+  });
+
+  document.getElementById('alert-count').textContent=totalAlerts;
+  if(totalAlerts>0) document.getElementById('alert-count').style.background='var(--red)';
+  else document.getElementById('alert-count').style.background='#333';
+}
+
+function toggleAlerts(){
+  alertsOpen=!alertsOpen;
+  document.getElementById('alerts-panel').classList.toggle('open',alertsOpen);
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let nodes=[],selN=null,filt='all',selG=null,draggingNode=null,gpO=true;
+let vx=0,vy=0,vz=1,isPanning=false,panStart={x:0,y:0},panOrigin={x:0,y:0};
+const bgc=document.getElementById('bgc'),nc=document.getElementById('nc');
+const bx=bgc.getContext('2d'),nx=nc.getContext('2d');
+let W=0,H=0,DPR=Math.min(window.devicePixelRatio||1,2),lastT=0,pulse=0,pulse2=0;
+
+// ── LOAD ──────────────────────────────────────────────────────────────────────
+async function loadData(){
+  document.getElementById('lo-sub').textContent='Fetching contacts.json...';
+  try{
+    const res=await fetch('./contacts.json?v='+Date.now());
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    CONTACTS=data.contacts||[];
+    const v=data.meta?.version||'1.0',d=data.meta?.last_updated||'—';
+    document.getElementById('ver').textContent=`v${v} · ${d}`;
+    return true;
+  }catch(e){
+    CONTACTS=EMBEDDED_CONTACTS;
+    document.getElementById('ver').textContent='embedded data';
+    return false;
+  }
+}
+async function reloadData(){
+  const btn=document.getElementById('sync-btn');
+  btn.classList.add('syncing');btn.textContent='↻ Syncing';
+  await loadData();buildGraph();renderGoals();updateStats();buildAlertsPanel();
+  setTimeout(()=>{btn.classList.remove('syncing');btn.textContent='↻ Sync';},900);
+}
+async function init(){
+  await loadData();
+  resize();
+  requestAnimationFrame(loop);
+  buildAlertsPanel();
+  setTimeout(()=>{
+    const l=document.getElementById('loader');
+    l.style.transition='opacity .5s';l.style.opacity='0';
+    document.getElementById('app').classList.add('ready');
+    setTimeout(()=>l.style.display='none',500);
+  },700);
+}
+
+// ── CLOCK ─────────────────────────────────────────────────────────────────────
+function clkTick(){
+  const n=new Date();
+  document.getElementById('clk').textContent=
+    n.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).toUpperCase()+
+    '  /  '+n.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(clkTick,1000);clkTick();
+
+// ── CANVAS ────────────────────────────────────────────────────────────────────
+function resize(){
+  const ca=document.getElementById('cv');
+  W=ca.clientWidth;H=ca.clientHeight;
+  [bgc,nc].forEach(c=>{c.width=W*DPR;c.height=H*DPR;c.style.width=W+'px';c.style.height=H+'px';});
+  bx.scale(DPR,DPR);
+  drawBg();buildGraph();
+}
+
+function drawBg(){
+  bx.clearRect(0,0,W,H);bx.fillStyle='#000';bx.fillRect(0,0,W,H);
+  // Fine dot grid
+  bx.fillStyle='rgba(255,255,255,0.018)';
+  const s=36;
+  for(let x=s;x<W;x+=s)for(let y=s;y<H;y+=s){
+    bx.beginPath();bx.arc(x,y,0.7,0,Math.PI*2);bx.fill();
+  }
+}
+
+function nR(c){return 12+(c.score||5)*1.1+((c.goals||[]).length)*0.6;}
+
+function buildGraph(){
+  const cx=W/2,cy=H/2,ex=new Map(nodes.map(n=>[n.id,n]));
+  // Position nodes in rough category clusters initially
+  const catAngles={us:Math.PI*0.1,am:Math.PI*0.5,kb:Math.PI*0.9,iv:Math.PI*1.2,
+                   co:Math.PI*1.6,po:Math.PI*1.8,ed:Math.PI*1.4,eu:Math.PI*0.7};
+  nodes=CONTACTS.map(c=>{
+    const o=ex.get(c.id);
+    const baseAngle=catAngles[c.cat]||Math.random()*Math.PI*2;
+    const jitter=(Math.random()-.5)*0.8;
+    const a=baseAngle+jitter;
+    const r=100+Math.random()*Math.min(W,H)*0.22;
+    return{id:c.id,d:c,
+      x:o?o.x:cx+Math.cos(a)*r,y:o?o.y:cy+Math.sin(a)*r,
+      vx:o?o.vx:0,vy:o?o.vy:0,r:nR(c)};
+  });
+  resetView();updateStats();renderGoals();
+}
+
+// ── PHYSICS ───────────────────────────────────────────────────────────────────
+function tick(){
+  const A=0.05,cx=W/2,cy=H/2,L=getLinks();
+  // Gentle centre gravity
+  nodes.forEach(n=>{
+    if(n===draggingNode)return;
+    n.vx+=(cx-n.x)*0.0012*A;n.vy+=(cy-n.y)*0.0012*A;
+  });
+  // Spring forces — only pull along real links
+  L.forEach(l=>{
+    const s=nodes.find(n=>n.id===l.s),t=nodes.find(n=>n.id===l.t);
+    if(!s||!t)return;
+    const dx=t.x-s.x,dy=t.y-s.y,d=Math.hypot(dx,dy)||1;
+    // Different ideal distances by link type
+    const ideal=l.type==='goal-strong'?90:l.type==='goal-weak'?130:180;
+    const f=(d-ideal)/d*A*0.18;
+    if(s!==draggingNode){s.vx+=dx*f;s.vy+=dy*f;}
+    if(t!==draggingNode){t.vx-=dx*f;t.vy-=dy*f;}
+  });
+  // Repulsion — all nodes push away from each other
+  nodes.forEach((a,ai)=>nodes.forEach((b,bi)=>{
+    if(bi<=ai)return;
+    const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1;
+    const minD=(a.r+b.r)*2.2+18;
+    if(d<minD){
+      const f=(minD-d)/d*0.055;
+      if(a!==draggingNode){a.vx-=dx*f;a.vy-=dy*f;}
+      if(b!==draggingNode){b.vx+=dx*f;b.vy+=dy*f;}
+    }
+  }));
+  // Integrate + boundary
+  nodes.forEach(n=>{
+    if(n===draggingNode)return;
+    n.vx*=0.83;n.vy*=0.83;n.x+=n.vx;n.y+=n.vy;
+    const pad=n.r+14;
+    n.x=Math.max(pad,Math.min(W-pad,n.x));
+    n.y=Math.max(pad+54,Math.min(H-pad,n.y));
+  });
+}
+
+// ── DRAW ──────────────────────────────────────────────────────────────────────
+function draw(t){
+  // Two independent pulse oscillators for richer animation
+  pulse=(Math.sin(t/800)+1)/2;
+  pulse2=(Math.sin(t/1300+1.2)+1)/2;
+
+  nx.setTransform(DPR,0,0,DPR,0,0);
+  nx.clearRect(0,0,W,H);
+  nx.save();
+  nx.translate(vx,vy);
+  nx.scale(vz,vz);
+
+  const V=new Set(visNodes().map(n=>n.id));
+  const L=getLinks();
+  const GN=selG?new Set(CONTACTS.filter(c=>(c.goals||[]).includes(selG)).map(c=>c.id)):null;
+
+  // ── EDGES ─────────────────────────────────────────────────────────────────
+  L.forEach(l=>{
+    const s=nodes.find(n=>n.id===l.s),t=nodes.find(n=>n.id===l.t);
+    if(!s||!t)return;
+    const sv=V.has(s.id),tv=V.has(t.id);
+    if(!sv&&!tv)return;
+    const bv=sv&&tv; // both visible
+
+    // Calculate alpha based on link type and visibility
+    let alpha,lw,dash=[];
+    if(l.type==='goal-strong'){
+      alpha=bv?0.55:0.04;lw=bv?1.8:0.3;
+    }else if(l.type==='goal-weak'){
+      alpha=bv?0.2:0.03;lw=bv?0.8:0.2;
+    }else{ // intro
+      alpha=bv?0.1:0.02;lw=0.5;dash=[3,7];
+    }
+
+    nx.strokeStyle=l.type==='goal-strong'?`rgba(201,168,76,${alpha})`:`rgba(255,255,255,${alpha})`;
+    nx.lineWidth=lw;
+    nx.setLineDash(dash);
+    nx.beginPath();nx.moveTo(s.x,s.y);nx.lineTo(t.x,t.y);nx.stroke();
+    nx.setLineDash([]);
+  });
+
+  // ── NODES ─────────────────────────────────────────────────────────────────
+  nodes.forEach(n=>{
+    const d=n.d,isV=V.has(n.id),isSel=selN&&selN.id===n.id;
+    const isGoal=GN&&GN.has(n.id);
+    const cold=ds(d.lastContact)>30;
+    const col=CC[d.cat]||'#666';
+
+    nx.globalAlpha=isV?1:0.06;
+
+    // ── GOAL MATCH GLOW ──────────────────────────────────────────────────
+    if(isGoal&&isV){
+      // Outer soft glow
+      const glowR=n.r+14+pulse*4;
+      nx.beginPath();nx.arc(n.x,n.y,glowR,0,Math.PI*2);
+      const grd=nx.createRadialGradient(n.x,n.y,n.r,n.x,n.y,glowR);
+      grd.addColorStop(0,`rgba(201,168,76,${0.18+pulse*0.12})`);
+      grd.addColorStop(1,'rgba(201,168,76,0)');
+      nx.fillStyle=grd;nx.fill();
+      // Sharp ring
+      nx.beginPath();nx.arc(n.x,n.y,n.r+5,0,Math.PI*2);
+      nx.strokeStyle=`rgba(201,168,76,${0.5+pulse*0.35})`;
+      nx.lineWidth=1.2;nx.stroke();
+    }
+
+    // ── COLD RING (pulsing dashes) ────────────────────────────────────────
+    if(cold&&isV){
+      // Animated dash offset for spinning effect
+      const dashOff=(Date.now()/25)%20;
+      nx.beginPath();nx.arc(n.x,n.y,n.r+4,0,Math.PI*2);
+      nx.strokeStyle=`rgba(176,48,48,${0.4+pulse2*0.4})`;
+      nx.lineWidth=1;
+      nx.setLineDash([3,4]);nx.lineDashOffset=-dashOff;
+      nx.stroke();nx.setLineDash([]);nx.lineDashOffset=0;
+    }
+
+    // ── SELECTED HALO ────────────────────────────────────────────────────
+    if(isSel&&isV){
+      nx.beginPath();nx.arc(n.x,n.y,n.r+3,0,Math.PI*2);
+      nx.strokeStyle='rgba(255,255,255,0.2)';nx.lineWidth=4;nx.stroke();
+    }
+
+    // ── NODE BODY ────────────────────────────────────────────────────────
+    // Fill: subtle colour tint
+    nx.beginPath();nx.arc(n.x,n.y,n.r,0,Math.PI*2);
+    const fillGrd=nx.createRadialGradient(n.x-n.r*.25,n.y-n.r*.3,0,n.x,n.y,n.r);
+    fillGrd.addColorStop(0,col+'28');fillGrd.addColorStop(1,col+'0a');
+    nx.fillStyle=fillGrd;nx.fill();
+    // Border
+    nx.beginPath();nx.arc(n.x,n.y,n.r,0,Math.PI*2);
+    nx.strokeStyle=isSel?'rgba(255,255,255,0.7)':isV?`${col}cc`:`${col}18`;
+    nx.lineWidth=isSel?1.8:isV?1.0:0.4;nx.stroke();
+
+    nx.globalAlpha=1;
+
+    // ── LABEL ────────────────────────────────────────────────────────────
+    if(isV){
+      const fs=Math.max(7.5,Math.min(10,n.r*.58));
+      nx.font=`300 ${fs}px 'DM Mono',monospace`;
+      nx.shadowColor='rgba(0,0,0,0.95)';nx.shadowBlur=5;
+      nx.fillStyle='rgba(255,255,255,0.9)';
+      nx.textAlign='center';nx.textBaseline='middle';
+      const parts=d.name.split(' ');
+      if(d.name.length<=10||parts.length<=1){
+        nx.fillText(d.name,n.x,n.y);
+      }else{
+        const m=Math.ceil(parts.length/2);
+        nx.fillText(parts.slice(0,m).join(' '),n.x,n.y-fs*.6);
+        nx.fillText(parts.slice(m).join(' '),n.x,n.y+fs*.6);
+      }
+      nx.shadowBlur=0;
+    }
+  });
+
+  nx.restore();
+}
+
+function loop(t){
+  requestAnimationFrame(loop);
+  if(t-lastT<14)return;lastT=t;
+  tick();draw(t);
+}
+
+// ── VIEWPORT ──────────────────────────────────────────────────────────────────
+function screenToWorld(sx,sy){return{x:(sx-vx)/vz,y:(sy-vy)/vz};}
+function zoomBy(factor,cx,cy){
+  if(cx===undefined){cx=W/2;cy=H/2;}
+  const nz=Math.max(0.15,Math.min(5,vz*factor));
+  vx=cx-(cx-vx)*(nz/vz);vy=cy-(cy-vy)*(nz/vz);vz=nz;
+  document.getElementById('zlv').textContent=Math.round(vz*100)+'%';
+}
+function resetView(){vx=0;vy=0;vz=1;document.getElementById('zlv').textContent='100%';}
+
+nc.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const r=nc.getBoundingClientRect();
+  zoomBy(e.deltaY<0?1.11:0.9,e.clientX-r.left,e.clientY-r.top);
+},{passive:false});
+
+// ── MOUSE ─────────────────────────────────────────────────────────────────────
+let mouseDownPos={x:0,y:0},mouseDownTime=0;
+nc.addEventListener('mousedown',e=>{
+  const r=nc.getBoundingClientRect(),sx=e.clientX-r.left,sy=e.clientY-r.top;
+  const wp=screenToWorld(sx,sy);
+  mouseDownPos={x:sx,y:sy};mouseDownTime=Date.now();
+  const hit=visNodes().find(n=>Math.hypot(n.x-wp.x,n.y-wp.y)<n.r+5);
+  if(hit){draggingNode=hit;}
+  else{isPanning=true;panStart={x:e.clientX,y:e.clientY};panOrigin={x:vx,y:vy};document.getElementById('cv').classList.add('panning');}
+});
+nc.addEventListener('mousemove',e=>{
+  const r=nc.getBoundingClientRect(),sx=e.clientX-r.left,sy=e.clientY-r.top;
+  if(draggingNode){const wp=screenToWorld(sx,sy);draggingNode.x=wp.x;draggingNode.y=wp.y;draggingNode.vx=0;draggingNode.vy=0;return;}
+  if(isPanning){vx=panOrigin.x+(e.clientX-panStart.x);vy=panOrigin.y+(e.clientY-panStart.y);return;}
+  const wp=screenToWorld(sx,sy);
+  const tip=document.getElementById('tip');
+  const hit=visNodes().find(n=>Math.hypot(n.x-wp.x,n.y-wp.y)<n.r+6);
+  if(hit){
+    const d=hit.d,age=ds(d.lastContact),asc=autoScore(d);
+    tip.style.opacity='1';tip.style.left=(sx+14)+'px';tip.style.top=(sy-10)+'px';
+    tip.innerHTML=`<span style="color:${CC[d.cat]||'#fff'}">${d.name}</span>`+
+      (age>30?`<br><span style="color:#c06060">${age}d cold</span>`:'')+
+      `<br><span style="opacity:.4">${d.role||''}</span>`+
+      `<br><span style="color:var(--gold)">Score ${asc}/10</span>`;
+  }else tip.style.opacity='0';
+});
+nc.addEventListener('mouseup',e=>{
+  const r=nc.getBoundingClientRect(),sx=e.clientX-r.left,sy=e.clientY-r.top;
+  const elapsed=Date.now()-mouseDownTime,moved=Math.hypot(sx-mouseDownPos.x,sy-mouseDownPos.y);
+  if(draggingNode&&moved<8&&elapsed<300)openPanel(draggingNode);
+  else if(!draggingNode&&!isPanning&&moved<5){
+    const wp=screenToWorld(sx,sy);
+    const hit=visNodes().find(n=>Math.hypot(n.x-wp.x,n.y-wp.y)<n.r+5);
+    if(hit)openPanel(hit);else closePanel();
+  }
+  draggingNode=null;isPanning=false;document.getElementById('cv').classList.remove('panning');
+});
+nc.addEventListener('mouseleave',()=>{draggingNode=null;isPanning=false;document.getElementById('cv').classList.remove('panning');document.getElementById('tip').style.opacity='0';});
+
+// ── TOUCH ─────────────────────────────────────────────────────────────────────
+let touchStart=null,lastTouchDist=null,touchNode=null;
+nc.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(e.touches.length===1){
+    const r=nc.getBoundingClientRect(),t=e.touches[0];
+    const wp=screenToWorld(t.clientX-r.left,t.clientY-r.top);
+    touchStart={x:t.clientX,y:t.clientY,vx,vy,time:Date.now()};
+    touchNode=visNodes().find(n=>Math.hypot(n.x-wp.x,n.y-wp.y)<n.r+14)||null;
+  }
+  if(e.touches.length===2){const d=e.touches;lastTouchDist=Math.hypot(d[0].clientX-d[1].clientX,d[0].clientY-d[1].clientY);}
+},{passive:false});
+nc.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(e.touches.length===1&&touchNode){const r=nc.getBoundingClientRect(),t=e.touches[0];const wp=screenToWorld(t.clientX-r.left,t.clientY-r.top);touchNode.x=wp.x;touchNode.y=wp.y;touchNode.vx=0;touchNode.vy=0;}
+  else if(e.touches.length===1&&touchStart){const t=e.touches[0];vx=touchStart.vx+(t.clientX-touchStart.x);vy=touchStart.vy+(t.clientY-touchStart.y);}
+  else if(e.touches.length===2&&lastTouchDist){
+    const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY,d=Math.hypot(dx,dy);
+    const cx=(e.touches[0].clientX+e.touches[1].clientX)/2,cy=(e.touches[0].clientY+e.touches[1].clientY)/2;
+    const r=nc.getBoundingClientRect();zoomBy(d/lastTouchDist,cx-r.left,cy-r.top);lastTouchDist=d;
+  }
+},{passive:false});
+nc.addEventListener('touchend',e=>{
+  e.preventDefault();
+  if(e.changedTouches.length===1&&touchNode&&touchStart){
+    const t=e.changedTouches[0];
+    if(Math.hypot(t.clientX-touchStart.x,t.clientY-touchStart.y)<12&&Date.now()-touchStart.time<400)openPanel(touchNode);
+  }
+  touchNode=null;touchStart=null;lastTouchDist=null;
+},{passive:false});
+
+// ── UTILITY ───────────────────────────────────────────────────────────────────
+function ds(s){if(!s)return 9999;return Math.floor((Date.now()-new Date(s))/864e5);}
+function autoScore(d){const age=ds(d.lastContact);return Math.max(1,Math.min(10,(d.score||5)-(age>30?3:age>14?1:0)));}
+function visNodes(){
+  const q=document.getElementById('srch').value.toLowerCase();
+  return nodes.filter(n=>(filt==='all'||n.d.cat===filt)&&(!q||n.d.name.toLowerCase().includes(q)||(n.d.role||'').toLowerCase().includes(q)));
+}
+function updateStats(){
+  document.getElementById('stot').textContent=CONTACTS.length;
+  document.getElementById('scold').textContent=CONTACTS.filter(c=>ds(c.lastContact)>30).length;
+  document.getElementById('sint').textContent=CONTACTS.filter(c=>c.knows&&c.knows.length>3).length;
+}
+
+// ── GOAL MATCHER ──────────────────────────────────────────────────────────────
+function renderGoals(){
+  const gl=document.getElementById('gl');gl.innerHTML='';
+  GOALS.forEach(g=>{
+    const ms=CONTACTS.filter(c=>(c.goals||[]).includes(g.code));
+    const el=document.createElement('div');
+    el.className='gi'+(selG===g.code?' sl':'');
+    el.onclick=()=>{selG=selG===g.code?null:g.code;renderGoals();};
+    const chips=ms.length?ms.slice(0,3).map(m=>{
+      const adj=autoScore(m);
+      const[bg,fc]=adj>=7?['rgba(42,138,80,.18)','#5cc47a']:adj>=4?['rgba(176,128,48,.18)','#d4a84b']:['rgba(176,48,48,.18)','#e07070'];
+      return`<span class="gch" style="background:${bg};color:${fc}">${m.name.split(' ')[0]} ${adj}/10</span>`;
+    }).join(''):'<span class="gch" style="background:rgba(176,48,48,.1);color:#e07070">No contacts</span>';
+    el.innerHTML=`<div class="gc">${g.code} · ${g.domain}</div><div class="gt2">${g.text}</div><div class="gchs">${chips}</div>`;
+    gl.appendChild(el);
+  });
+}
+
+// ── PANEL ─────────────────────────────────────────────────────────────────────
+function openPanel(node){
+  selN=node;const d=node.d,col=CC[d.cat]||'#666';
+  const age=ds(d.lastContact),sc=d.score||5,asc=autoScore(d);
+  const cold=age>30,hot=age<7&&sc>=7;
+  const mgs=GOALS.filter(g=>(d.goals||[]).includes(g.code));
+  const conns=CONTACTS.filter(c=>c.id!==d.id&&(c.goals||[]).some(g=>(d.goals||[]).includes(g))).slice(0,3);
+  const sfc=asc>=8?'#3a9055':asc>=5?'#b08030':'#b03030';
+  const dc=age>30?'#b03030':age>14?'#b08030':'#3a9055';
+
+  document.getElementById('pc').innerHTML=`
+    <div class="pbg" style="background:${col}18;color:${col};border-color:${col}30">${CL[d.cat]||d.cat}</div>
+    <div class="pnm">${d.name}</div>
+    <div class="prl">${d.role||''}</div>
+    ${cold?`<div class="cw">— ${age>900?'Never contacted':age+'d since last contact'}. Cold. Act now.</div>`:''}
+    ${hot?`<div class="hw">— Active. ${age} days since contact.</div>`:''}
+    <div class="psc">
+      <div class="pst">Relationship</div>
+      <div class="prw"><span class="pk">My score</span><span class="pv">${sc}/10</span></div>
+      <div class="prw"><span class="pk">Auto-adjusted</span><span class="pv" style="color:${sfc};font-weight:500">${asc}/10</span></div>
+      <div class="sb"><div class="sf" style="width:${asc*10}%;background:${sfc}"></div></div>
+      <div class="prw" style="margin-top:7px"><span class="pk">Last contact</span><span class="pv">${d.lastContact||'—'}</span></div>
+      <div class="prw"><span class="pk">Days since</span><span class="pv" style="color:${dc}">${age>900?'Never logged':age+'d ago'}</span></div>
+      <div class="prw"><span class="pk">Location</span><span class="pv">${d.loc||'—'}</span></div>
+    </div>
+    ${d.why?`<div class="psc"><div class="pst">Capacity</div><div class="ptx">${d.why}</div></div>`:''}
+    ${d.know?`<div class="psc"><div class="pst">Personal intel</div><div class="ptx" style="color:var(--t3);font-style:italic">${d.know}</div></div>`:''}
+    <div class="psc">
+      <div class="pst">Goals (${mgs.length})</div>
+      <div class="pgs">${mgs.length?mgs.map(g=>`<span class="gt">${g.code}</span>`).join(''):'<span class="ptx">None linked</span>'}</div>
+    </div>
+    ${d.knows?`<div class="psc"><div class="pst">Intro paths</div><div class="ptx" style="color:#2898b0">${d.knows}</div></div>`:''}
+    ${d.favours?`<div class="psc"><div class="pst">Favours</div><div class="ptx">${d.favours}</div></div>`:''}
+    ${d.nextAction?`<div class="psc"><div class="pst">Next action</div><div class="ptx" style="color:${cold?'#c06060':'var(--gold)'};font-weight:500">${d.nextAction}</div></div>`:''}
+    ${conns.length?`<div class="psc"><div class="pst">Goal network</div>${conns.map(c=>{
+      const sh=(c.goals||[]).filter(g=>(d.goals||[]).includes(g));
+      return`<div class="cc"><div class="ccn" style="color:${CC[c.cat]||'#888'}">${c.name}</div><div class="ccw">Shared: ${sh.join(', ')}</div></div>`;
+    }).join('')}</div>`:''}
+    <button class="ab" onclick="markC(${d.id})">Mark Contacted Today</button>
+  `;
+  document.getElementById('pn').classList.add('open');
+  document.getElementById('gp').classList.add('sh');
+}
+
+function markC(id){
+  const c=CONTACTS.find(x=>x.id===id);if(!c)return;
+  c.lastContact=new Date().toISOString().split('T')[0];
+  updateStats();renderGoals();buildAlertsPanel();
+  if(selN&&selN.d.id===id)openPanel(selN);
+}
+function closePanel(){selN=null;document.getElementById('pn').classList.remove('open');document.getElementById('gp').classList.remove('sh');}
+function toggleGP(){const gl=document.getElementById('gl'),b=document.getElementById('gpb');gpO=!gpO;gl.style.display=gpO?'':'none';b.textContent=gpO?'−':'+';}
+
+// ── FILTERS ───────────────────────────────────────────────────────────────────
+document.querySelectorAll('.pill').forEach(p=>{
+  p.onclick=()=>{document.querySelectorAll('.pill').forEach(x=>x.classList.remove('on'));p.classList.add('on');filt=p.dataset.f;};
+});
+document.getElementById('srch').addEventListener('input',()=>renderGoals());
+window.addEventListener('resize',()=>{drawBg();});
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function showModal(){document.getElementById('fd').value=new Date().toISOString().split('T')[0];document.getElementById('mo').classList.add('show');}
+function hideModal(){document.getElementById('mo').classList.remove('show');}
+function addContact(){
+  const name=document.getElementById('fn').value.trim();
+  if(!name){alert('Name is required');return;}
+  const nid=Math.max(0,...CONTACTS.map(c=>c.id))+1;
+  const gs=document.getElementById('fg').value;
+  CONTACTS.push({id:nid,name,role:document.getElementById('fr').value,cat:document.getElementById('fc').value,
+    loc:document.getElementById('fl').value,met:document.getElementById('fm').value,
+    why:document.getElementById('fw').value,know:document.getElementById('fk').value,
+    lastContact:document.getElementById('fd').value,score:parseInt(document.getElementById('fs').value)||5,
+    goals:gs?gs.split(',').map(g=>g.trim()).filter(Boolean):[],
+    knows:document.getElementById('fkw').value,favours:document.getElementById('ff').value,
+    nextAction:document.getElementById('fna').value});
+  hideModal();
+  ['fn','fr','fl','fm','fg','fkw','fna'].forEach(id=>document.getElementById(id).value='');
+  ['fw','fk','ff'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fs').value=5;
+  buildGraph();buildAlertsPanel();
+  setTimeout(()=>{const nn=nodes.find(n=>n.id===nid);if(nn)openPanel(nn);},400);
+}
+
+init();
+</script>
+</body>
+</html>
